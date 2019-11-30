@@ -248,8 +248,11 @@ update_git_repo() {
 
 cleanup_previous_build() {
   case $repo_name in
-  harmony|go-sdk)
+  harmony)
     rm -rf $repositories_path/$repo_name/bin/*
+    ;;
+  go-sdk)
+    rm -rf $repositories_path/$repo_name/dist/*
     ;;
   bls|mcl)
     rm -rf $repositories_path/$repo_name/lib/*
