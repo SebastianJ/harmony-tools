@@ -9,10 +9,10 @@ Installation:
 
 ```
 curl -LO https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/build/build.sh && chmod u+x build.sh
-./build
+./build.sh
 ```
 
 Display all available options:
 ```
-./build --help
+./build.sh --help
 ```
