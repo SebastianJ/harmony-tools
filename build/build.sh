@@ -95,7 +95,11 @@ check_dependencies() {
   output_header "${header_index}. Installation - installing missing dependencies (if not already installed)"
   ((header_index++))
   
+  info_message "Updating apt-get..."
+  
   sudo apt-get update -y --fix-missing >/dev/null 2>&1
+  
+  success_message "apt-get updated!"
   
   for package in "${packages[@]}"; do
     install_package_dependency "$package"
