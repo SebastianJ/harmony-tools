@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Harmony custom build script - compiles bleeding edge binaries based on the latest master repo
+# Harmony custom build script - compiles bleeding edge binaries based on the latest master (or user specified) branch of the harmony and go-sdk git repositories
 version="0.0.1"
 script_name="build.sh"
-default_go_version="go1.12.0"
+default_go_version="go1.12"
 
 #
 # Arguments/configuration
@@ -16,6 +16,8 @@ Options:
    --go-path                  path    the go path where git repositories should be cloned, will default to $GOPATH
    --gvm                              install go using gvm
    --go-version                       what version of golang to install, defaults to ${default_go_version}
+   --harmony-branch           name    which git branch to use for the harmony, bls and mcl git repositories (defaults to master)
+   --hmy-branch               name    which git branch to use for the go-sdk/hmy git repository (defaults to master)
    --help                             print this help
 EOT
 }
@@ -27,6 +29,8 @@ do
   --go-path) go_path="${2%/}" ; shift;;
   --gvm) install_using_gvm=true ;;
   --go-version) go_version="$2" ; shift;;
+  --harmony-branch) harmony_branch="$2" ; shift;;
+  --hmy-branch) hmy_branch="$2" ; shift;;
   -h|--help) usage; exit 1;;
   (--) shift; break;;
   (-*) usage; exit 1;;
@@ -37,7 +41,7 @@ done
 
 initialize() {
   set_variables
-  create_base_directories  
+  create_base_directories
   set_formatting
 }
 
@@ -47,19 +51,37 @@ set_variables() {
   fi
   
   if [ -z "$build_path" ]; then
-    build_path=$HOME/harmony-binaries
+    build_path=$HOME/harmony
   fi
 
   if [ -z "$go_path" ]; then
     go_path=$HOME/go
   fi
   
+  if [ -z "$go_version" ]; then
+    go_version=$default_go_version
+  fi
+  
+  if [ -z "$harmony_branch" ]; then
+    harmony_branch="master"
+  fi
+  
+  if [ -z "$hmy_branch" ]; then
+    hmy_branch="master"
+  fi
+  
   executing_user=$(whoami)
   
   organization="harmony-one"
   repositories=(mcl bls harmony go-sdk)
-  binary_repositories=(harmony go-sdk)
+  packages=(curl build-essential libgmp-dev libssl-dev bison)
+  
+  if [ "$install_using_gvm" = true ]; then
+    packages+=(bison libbison-dev m4)
+  fi
+  
   repositories_path=$go_path/src/github.com/$organization
+  profile_file=".bash_profile"
 }
 
 create_base_directories() {
@@ -70,29 +92,35 @@ create_base_directories() {
 # Dependencies
 #
 check_dependencies() {
-  install_build_essentials
-}
-
-install_build_essentials() {
-  build_essentials_installed=$(dpkg-query -l build-essential | grep -oam 1 "no packages found")
+  output_header "${header_index}. Installation - installing missing dependencies (if not already installed)"
+  ((header_index++))
   
-  if [ ! -z "$build_essentials_installed" ]; then
-    info_message "build-essential wasn't detected on your system, proceeding to install it"
-    sudo apt-get -y install build-essential
-    
-    build_essentials_installed=$(dpkg-query -l build-essential | grep -oam 1 "no packages found")
-    
-    if [ -z "$build_essentials_installed" ]; then
-      success_message "build-essential successfully installed!"
-    fi
-  fi
+  sudo apt-get update -y --fix-missing >/dev/null 2>&1
+  
+  for package in "${packages[@]}"; do
+    install_package_dependency "$package"
+  done
 }
 
+install_package_dependency() {
+  package_name=$1
+
+  if ! dpkg-query -W $package_name >/dev/null 2>&1; then
+    info_message "${package_name} wasn't detected on your system, proceeding to install it (this might take a while)..."
+    sudo apt-get -y install $package_name >/dev/null 2>&1
+    success_message "$package_name successfully installed!"
+  else
+    success_message "$package_name is already installed - proceeding!"
+  fi
+  
+  echo
+}
 
 #
 # Go installation
 #
 set_go_version() {
+  # This is disabled for now - Harmony specifically depends on go1.12.0 and this code would set the go version to the latest available version fetched from golang.org
   if [ -z "$go_version" ]; then
     latest_go_version=$(curl -sS https://golang.org/VERSION?m=text)
     
@@ -105,12 +133,12 @@ set_go_version() {
 }
 
 install_go() {
-  output_header "${header_index}. Installation - installing go if not already installed"
+  output_header "${header_index}. Installation - installing Go version ${go_version} (if not already installed)"
   ((header_index++))
   
   source_environment_variable_scripts
   
-  if command -v go >/dev/null 2>&1; then
+  if command -v go >/dev/null 2>&1 || test -d /usr/local/go/bin; then
     go_version=$(go version)
     go_installation_path=$(which go)
     success_message "Successfully found go on your system!"
@@ -131,10 +159,8 @@ install_go() {
 
 regular_go_installation() {
   if ! test -d /usr/local/go/bin; then
-    set_go_version
-  
-    output_header "${header_index}. Installation - installing Go version ${go_version} using regular install"
-    ((header_index++))
+    #set_go_version
+    output_sub_header "Installation - installing Go version ${go_version} using the regular go install method"
     
     info_message "Downloading go installation archive..."
   
@@ -142,19 +168,19 @@ regular_go_installation() {
     sudo tar -xzf $go_version.linux-amd64.tar.gz -C /usr/local
     rm -rf $go_version.linux-amd64.tar.gz
     
-    touch $HOME/.bashrc
+    touch $HOME/$profile_file
     
-    if ! cat $HOME/.bashrc | grep "export GOROOT" > /dev/null; then
-      echo "export GOROOT=/usr/local/go" >> $HOME/.bashrc
+    if ! cat $HOME/$profile_file | grep "export GOROOT" > /dev/null; then
+      echo "export GOROOT=/usr/local/go" >> $HOME/$profile_file
     fi
   
-    if ! cat $HOME/.bashrc | grep "export GOPATH" > /dev/null; then
-      echo "export GOPATH=$go_path" >> $HOME/.bashrc
+    if ! cat $HOME/$profile_file | grep "export GOPATH" > /dev/null; then
+      echo "export GOPATH=$go_path" >> $HOME/$profile_file
     fi
   
-    echo "export PATH=\$PATH:\$GOROOT/bin" >> $HOME/.bashrc
+    echo "export PATH=\$PATH:\$GOROOT/bin" >> $HOME/$profile_file
 
-    source $HOME/.bashrc
+    source $HOME/$profile_file
   
     success_message "Go version ${go_version} successfully installed!"
     
@@ -163,35 +189,33 @@ regular_go_installation() {
 }
 
 gvm_go_installation() {
-  set_go_version
-  
-  output_header "${header_index}. Installation - installing GVM and Go version ${go_version} using GVM"
-  ((header_index++))
+  #set_go_version
+  output_sub_header "Installation - installing GVM and Go version ${go_version} using GVM"
   
   sudo rm -rf $HOME/.gvm
-  touch $HOME/.bashrc
+  touch $HOME/$profile_file
   
-  info_message "Installing GVM"
+  info_message "Installing GVM..."
 
-  source <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer) 1> /dev/null 2>&1
+  source <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer)
   source $HOME/.gvm/scripts/gvm
   
-  if ! cat $HOME/.bashrc | grep ".gvm/scripts/gvm" > /dev/null; then
-    echo "[[ -s "\$HOME/.gvm/scripts/gvm" ]] && source \"\$HOME/.gvm/scripts/gvm\"" >> $HOME/.bashrc
+  if ! cat $HOME/$profile_file | grep ".gvm/scripts/gvm" > /dev/null; then
+    echo "[[ -s "\$HOME/.gvm/scripts/gvm" ]] && source \"\$HOME/.gvm/scripts/gvm\"" >> $HOME/$profile_file
   fi
   
-  if ! cat $HOME/.bashrc | grep "export GOPATH" > /dev/null; then
-    echo "export GOPATH=$go_path" >> $HOME/.bashrc
+  if ! cat $HOME/$profile_file | grep "export GOPATH" > /dev/null; then
+    echo "export GOPATH=$go_path" >> $HOME/$profile_file
   fi
 
-  source $HOME/.bashrc
+  source $HOME/$profile_file
   
   success_message "GVM successfully installed!"
   
   info_message "Installing go version ${go_version}..."
 
-  gvm install $go_version -B 1> /dev/null 2>&1
-  gvm use $go_version --default 1> /dev/null 2>&1
+  gvm install $go_version -B
+  gvm use $go_version --default
   
   success_message "Go version ${go_version} successfully installed!"
   
@@ -203,7 +227,9 @@ source_environment_variable_scripts() {
     source $HOME/.gvm/scripts/gvm
   fi
   
-  source $HOME/.bashrc
+  if test -f $HOME/$profile_file; then
+    source $HOME/$profile_file
+  fi
 }
 
 
@@ -211,7 +237,7 @@ source_environment_variable_scripts() {
 # Build/compilation
 #
 install_git_repos() {
-  output_header "${header_index}. Git - fetching the latest master versions of all required git repositories"
+  output_header "${header_index}. Git - fetching the latest versions of all required git repositories"
   ((header_index++))
   
   for repo in "${repositories[@]}"; do
@@ -231,7 +257,7 @@ install_git_repo() {
     cd $repo_name
     update_git_repo
   else
-    git clone https://github.com/${organization}/${repo_name} 1> /dev/null 2>&1
+    git clone https://github.com/${organization}/${repo_name} >/dev/null 2>&1
     cd $repo_name
     update_git_repo
   fi
@@ -240,10 +266,26 @@ install_git_repo() {
 }
 
 update_git_repo() {
-  git fetch 1> /dev/null 2>&1
-  git checkout --force master 1> /dev/null 2>&1
-  git pull 1> /dev/null 2>&1
-  success_message "Successfully installed/updated the repo ${repo_name}"
+  git fetch >/dev/null 2>&1
+  
+  case $repo_name in
+  harmony|bls|mcl)
+    info_message "Updating git repo ${repo_name} using branch ${harmony_branch}"
+    git checkout --force $harmony_branch >/dev/null 2>&1
+    git pull >/dev/null 2>&1
+    success_message "Successfully installed/updated git repo ${repo_name} using branch ${harmony_branch}"
+    ;;
+  go-sdk)
+    info_message "Updating git repo ${repo_name} using branch ${hmy_branch}"
+    git checkout --force $hmy_branch >/dev/null 2>&1
+    git pull >/dev/null 2>&1
+    success_message "Successfully installed/updated git repo ${repo_name} using branch ${hmy_branch}"
+    ;;
+  *)
+    ;;
+  esac
+  
+  echo
 }
 
 cleanup_previous_build() {
@@ -274,7 +316,7 @@ compile_binaries() {
   rm -rf $build_path
   mkdir -p $build_path
   
-  cd $repositories_path/harmony && make 1> /dev/null 2>&1
+  cd $repositories_path/harmony && make >/dev/null 2>&1
   
   if test -f bin/harmony; then
     success_message "Successfully compiled harmony, bls and mcl binaries!"
@@ -282,21 +324,33 @@ compile_binaries() {
     cp $repositories_path/bls/lib/libbls384_256.so $build_path
     cp $repositories_path/mcl/lib/libmcl.so $build_path
     success_message "The compiled binaries are now located in ${build_path}"
+    echo
   fi
   
   info_message "Starting compilation of hmy (this can take a while - sometimes several minutes)..."
   
   export GOPATH=$go_path
   
-  cd $repositories_path/go-sdk && make 1> /dev/null 2>&1
+  cd $repositories_path/go-sdk && make >/dev/null 2>&1
   
   if test -f dist/hmy; then
     success_message "Successfully compiled hmy!"
     cp -R dist/* $build_path
     success_message "The compiled binary is now located in ${build_path}"
+    echo
   fi
   
   output_footer
+}
+
+#
+# Scripts
+#
+download_node_script() {
+  cd $build_path
+  curl -O --silent --output /dev/null https://raw.githubusercontent.com/harmony-one/harmony/$harmony_branch/scripts/node.sh
+  chmod u+x node.sh
+  cd - >/dev/null 2>&1
 }
 
 #
@@ -349,7 +403,9 @@ output_header() {
 }
 
 output_sub_header() {
+  echo
   echo "${italic_text}${1}${normal_text}:"
+  echo
 }
 
 output_footer() {
@@ -364,12 +420,13 @@ output_sub_footer() {
 #
 # Main function
 #
-run() {
+build() {
   initialize
   check_dependencies
   install_go
   install_git_repos
   compile_binaries
+  download_node_script
 }
 
-run
+build
