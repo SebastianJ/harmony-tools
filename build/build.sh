@@ -150,7 +150,7 @@ install_go() {
     success_message "You're running version: ${detected_go_version}"
     
     if [ "$go_version" != "$detected_go_version" ]; then
-      error_message "You're running a go version different than the required version ${go_version} - please make sure ${go_version} installed and that it's the active version."
+      error_message "You're running a go version (${detected_go_version}) different than the required version ${go_version} - please make sure ${go_version} installed and that it's the active version."
       exit 1
     fi
     
