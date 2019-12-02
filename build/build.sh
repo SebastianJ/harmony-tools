@@ -143,11 +143,17 @@ install_go() {
   source_environment_variable_scripts
   
   if command -v go >/dev/null 2>&1 || test -d /usr/local/go/bin; then
-    go_version=$(go version)
-    go_installation_path=$(which go)
+    detected_go_version=$(go version)
+    detected_go_installation_path=$(which go)
     success_message "Successfully found go on your system!"
-    success_message "Your go installation is installed in: ${go_installation_path}"
-    success_message "You're running version: ${go_version}"
+    success_message "Your go installation is installed in: ${detected_go_installation_path}"
+    success_message "You're running version: ${detected_go_version}"
+    
+    if [ $go_version != $detected_go_version ]; then
+      error_message "You're running a go version different than the required version ${go_version} - please make sure ${go_version} installed and that it's the active version."
+      exit 1
+    fi
+    
   else
     info_message "Can't detect go on your system! Proceeding to install..."
     
