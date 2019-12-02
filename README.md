@@ -32,7 +32,7 @@ Display all available options:
 Usage: ./build.sh [option] command
 Options:
    --path                     path    the output path for compiled binaries
-   --go-path                  path    the go path where git repositories should be cloned, will default to /home/deploy/go
+   --go-path                  path    the go path where git repositories should be cloned, will default to $HOME/go
    --gvm                              install go using gvm
    --go-version                       what version of golang to install, defaults to go1.12
    --harmony-branch           name    which git branch to use for the harmony, bls and mcl git repositories (defaults to master)
