@@ -17,7 +17,11 @@ This will compile all related harmony and go-sdk/hmy binaries and save them to ~
 You can proceed to copy all of the binaries to a separate directory or run the node from the build directory.
 
 *IMPORTANT*
-If you're using node.sh in conjunction with this custom build you need to pass -D as a parameter to node.sh in order to stop it from downloading and overwriting the binaries.
+If you're using node.sh in conjunction with this custom build you need to pass -D as a parameter to node.sh in order to stop it from downloading and overwriting the binaries, e.g:
+
+```
+sudo ./node.sh -D -k bls.key -N dev -i 0
+```
 
 Display all available options:
 ```
