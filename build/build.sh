@@ -18,6 +18,7 @@ Options:
    --go-version                       what version of golang to install, defaults to ${default_go_version}
    --harmony-branch           name    which git branch to use for the harmony, bls and mcl git repositories (defaults to master)
    --hmy-branch               name    which git branch to use for the go-sdk/hmy git repository (defaults to master)
+   --verbose                          run the script in verbose mode
    --help                             print this help section
 EOT
 }
@@ -31,6 +32,7 @@ do
   --go-version) go_version="$2" ; shift;;
   --harmony-branch) harmony_branch="$2" ; shift;;
   --hmy-branch) hmy_branch="$2" ; shift;;
+  --verbose) verbose=true ;;
   -h|--help) usage; exit 1;;
   (--) shift; break;;
   (-*) usage; exit 1;;
@@ -97,7 +99,11 @@ check_dependencies() {
   
   info_message "Updating apt-get..."
   
-  sudo apt-get update -y --fix-missing >/dev/null 2>&1
+  if [ "$verbose" = true ]; then
+    sudo apt-get update -y --fix-missing
+  else
+    sudo apt-get update -y --fix-missing >/dev/null 2>&1
+  fi
   
   success_message "apt-get updated!"
   
@@ -111,7 +117,13 @@ install_package_dependency() {
 
   if ! dpkg-query -W $package_name >/dev/null 2>&1; then
     info_message "${package_name} wasn't detected on your system, proceeding to install it (this might take a while)..."
-    sudo apt-get -y install $package_name >/dev/null 2>&1
+    
+    if [ "$verbose" = true ]; then
+      sudo apt-get -y install $package_name
+    else
+      sudo apt-get -y install $package_name >/dev/null 2>&1
+    fi
+    
     success_message "$package_name successfully installed!"
   else
     success_message "$package_name is already installed - proceeding!"
@@ -149,10 +161,10 @@ install_go() {
     success_message "Your go installation is installed in: ${detected_go_installation_path}"
     success_message "You're running version: ${detected_go_version}"
     
-    #if [ "$go_version" != "$detected_go_version" ]; then
-    #  error_message "You're running a go version (${detected_go_version}) different than the required version ${go_version} - please make sure ${go_version} installed and that it's the active version."
-    #  exit 1
-    #fi
+    if [[ ! "$detected_go_version" =~ "$go_version" ]]; then
+      error_message "You're running a go version (${detected_go_version}) different than the required version ${go_version} - please make sure ${go_version} installed and that it's the active version."
+      exit 1
+    fi
     
   else
     info_message "Can't detect go on your system! Proceeding to install..."
@@ -267,7 +279,12 @@ install_git_repo() {
     cd $repo_name
     update_git_repo
   else
-    git clone https://github.com/${organization}/${repo_name} >/dev/null 2>&1
+    if [ "$verbose" = true ]; then
+      git clone https://github.com/${organization}/${repo_name}
+    else
+      git clone https://github.com/${organization}/${repo_name} >/dev/null 2>&1
+    fi
+    
     cd $repo_name
     update_git_repo
   fi
@@ -281,14 +298,28 @@ update_git_repo() {
   case $repo_name in
   harmony|bls|mcl)
     info_message "Updating git repo ${repo_name} using branch ${harmony_branch}"
-    git checkout --force $harmony_branch >/dev/null 2>&1
-    git pull >/dev/null 2>&1
+    
+    if [ "$verbose" = true ]; then
+      git checkout --force $harmony_branch
+      git pull
+    else
+      git checkout --force $harmony_branch >/dev/null 2>&1
+      git pull >/dev/null 2>&1
+    fi
+
     success_message "Successfully installed/updated git repo ${repo_name} using branch ${harmony_branch}"
     ;;
   go-sdk)
     info_message "Updating git repo ${repo_name} using branch ${hmy_branch}"
-    git checkout --force $hmy_branch >/dev/null 2>&1
-    git pull >/dev/null 2>&1
+    
+    if [ "$verbose" = true ]; then
+      git checkout --force $hmy_branch
+      git pull
+    else
+      git checkout --force $hmy_branch >/dev/null 2>&1
+      git pull >/dev/null 2>&1
+    fi
+
     success_message "Successfully installed/updated git repo ${repo_name} using branch ${hmy_branch}"
     ;;
   *)
@@ -326,7 +357,11 @@ compile_binaries() {
   rm -rf $build_path
   mkdir -p $build_path
   
-  cd $repositories_path/harmony && make >/dev/null 2>&1
+  if [ "$verbose" = true ]; then
+    cd $repositories_path/harmony && make
+  else
+    cd $repositories_path/harmony && make >/dev/null 2>&1
+  fi
   
   if test -f bin/harmony; then
     success_message "Successfully compiled harmony, bls and mcl binaries!"
@@ -341,7 +376,11 @@ compile_binaries() {
   
   export GOPATH=$go_path
   
-  cd $repositories_path/go-sdk && make >/dev/null 2>&1
+  if [ "$verbose" = true ]; then
+    cd $repositories_path/go-sdk && make
+  else
+    cd $repositories_path/go-sdk && make >/dev/null 2>&1
+  fi
   
   if test -f dist/hmy; then
     success_message "Successfully compiled hmy!"
