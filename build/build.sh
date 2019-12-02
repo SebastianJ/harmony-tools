@@ -18,7 +18,7 @@ Options:
    --go-version                       what version of golang to install, defaults to ${default_go_version}
    --harmony-branch           name    which git branch to use for the harmony, bls and mcl git repositories (defaults to master)
    --hmy-branch               name    which git branch to use for the go-sdk/hmy git repository (defaults to master)
-   --help                             print this help
+   --help                             print this help section
 EOT
 }
 
