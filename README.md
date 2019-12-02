@@ -14,7 +14,7 @@ curl -LO https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/build
 ./build.sh
 ```
 
-This will compile all related harmony and go-sdk/hmy binaries and save them to ~/harmony by default (it's configurable using --path)
+This will compile all related harmony and go-sdk/hmy binaries and save them to ~/harmony by default. If you want to change the path where the binaries are copied use `--path YOUR_CUSTOM_PATH`.
 
 You can proceed to copy all of the binaries to a separate directory or run the node from the build directory.
 
