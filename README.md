@@ -5,6 +5,8 @@ Scripts and tools for Harmony.one
 ## build.sh
 build.sh is a custom build script that compiles the harmony + hmy binaries using the master branches from harmony-one/harmony and harmony-one/go-sdk.
 
+The script has currently only been tested on Ubuntu 16.04 and 18.04 - compatibility for other distros and versions will be added eventually.
+
 ### Installation:
 
 ```
