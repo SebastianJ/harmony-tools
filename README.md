@@ -24,6 +24,7 @@ Display all available options:
 ./build.sh --help
 ```
 
+```
 Usage: ./build.sh [option] command
 Options:
    --path                     path    the output path for compiled binaries
@@ -33,3 +34,4 @@ Options:
    --harmony-branch           name    which git branch to use for the harmony, bls and mcl git repositories (defaults to master)
    --hmy-branch               name    which git branch to use for the go-sdk/hmy git repository (defaults to master)
    --help                             print this help
+```
