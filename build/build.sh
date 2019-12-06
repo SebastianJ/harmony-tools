@@ -471,6 +471,7 @@ output_sub_footer() {
 #
 build() {
   initialize
+  output_banner
   check_dependencies
   install_go
   install_git_repos
