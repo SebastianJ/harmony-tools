@@ -15,7 +15,7 @@ Options:
   --addresses     addresses   a list of addresses, comma separated, e.g: one152yn6nvyjuln3kp4m2rljj6hvfapfhdxsmr79a,one1sefnsv9wa4xh3fffmr9f0mvfs7d09wjjnjucuy
   --file          path        the file to load wallet addresses from (preferred method)
   --export-file   path        the file to export data to (if the invoked method utilizes exports)
-  --amount        amount      the amount to send to each address
+  --amount        amount      the amount used for the invoked method (e.g. for transfers this is the amount that will be sent for each transfer)
   --api_endpoint  url         the API endpoint to use (defaults to https://api.s0.p.hmny.io)
   --help                      print this help section
 EOT
@@ -131,7 +131,7 @@ verify_exact_balances() {
     total_balance=${total_balances[$wallet]}
     
     if (( total_balance < amount )); then
-      echo "Wallet $wallet has a balance lesser than $amount! Total balance for $wallet is $total_balance"
+      echo "Wallet $wallet has a balance lesser than $amount! Total balance is $total_balance"
       export_wallets+=("${wallet}")
     fi
   done
