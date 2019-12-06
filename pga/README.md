@@ -4,7 +4,7 @@ Simple tool to check balances and perform automated transfers on Pangaea (or net
 ## Installation:
 
 ```
-curl -LO https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/pga/pga.sh && chmod u+x build.sh
+curl -LO https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/pga/pga.sh && chmod u+x pga.sh
 ./pga.sh --help
 ```
 
