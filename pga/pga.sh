@@ -137,6 +137,7 @@ verify_exact_balances() {
   done
   
   if (( ${#export_wallets[@]} )); then
+    rm -rf $export_file
     touch $export_file
     printf "%s\n" "${export_wallets[@]}" > $export_file
   fi
