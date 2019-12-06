@@ -12,23 +12,39 @@ Commands:
   verify-exact-balances       verify exact balances for provided addresses
 
 Options:
-  --addresses     addresses   a list of addresses, comma separated, e.g: one152yn6nvyjuln3kp4m2rljj6hvfapfhdxsmr79a,one1sefnsv9wa4xh3fffmr9f0mvfs7d09wjjnjucuy
-  --file          path        the file to load wallet addresses from (preferred method)
-  --export-file   path        the file to export data to (if the invoked method utilizes exports)
-  --amount        amount      the amount used for the invoked method (e.g. for transfers this is the amount that will be sent for each transfer)
-  --api_endpoint  url         the API endpoint to use (defaults to https://api.s0.p.hmny.io)
-  --help                      print this help section
+  --network         name        name of the network to use - mainnet / pangaea / devnet (dev)
+  --addresses       addresses   a list of addresses, comma separated, e.g: one152yn6nvyjuln3kp4m2rljj6hvfapfhdxsmr79a,one1sefnsv9wa4xh3fffmr9f0mvfs7d09wjjnjucuy
+  --input-file      path        the file to load wallet addresses from (preferred method)
+  --export-file     path        the file to export data to (if the invoked method utilizes exports)
+  --amount          amount      the amount used for the invoked method (e.g. for transfers this is the amount that will be sent for each transfer)
+  --tx-from         address     the transaction sender address
+  --tx-from-shard   shard-id    the transaction sender shard id
+  --tx-to           address     the transaction receiver address
+  --tx-to-shard     shard-id    the transaction receiver shard id
+  --tx-passphrase   passphrase  the passphrase for the wallet - will default to "harmony-one" unless specified for legacy reasons
+  --tx-wait         seconds     if you want to use --wait-for-confirm seconds to wait for transactions to finish
+  --api-endpoint    url         the API endpoint to use (defaults to https://api.s0.p.hmny.io)
+  --verbose                     enable verbose mode
+  --help                        print this help section
 EOT
 }
 
 action=""
 while (( "$#" )); do
   case "$1" in
+    --network) network="$2" ; shift 2;;
     --addresses) addresses_string="$2" ; shift 2;;
-    --file) file_path="$2" ; shift 2;;
+    --input-file) input_file="$2" ; shift 2;;
     --export-file) export_file="$2" ; shift 2 ;;
     --amount) amount="$2" ; shift 2 ;;
-    --endpoint) api_endpoint="$2" ; shift 2 ;;
+    --tx-from) tx_from="$2" ; shift 2 ;;
+    --tx-from-shard) tx_from_shard="$2" ; shift 2 ;;
+    --tx-to) tx_to="$2" ; shift 2 ;;
+    --tx-to-shard) tx_to_shard="$2" ; shift 2 ;;
+    --tx-passphrase) tx_passphrase="$2" ; shift 2 ;;
+    --tx-wait) tx_wait="$2" ; shift 2 ;;
+    --api-endpoint) api_endpoint="$2" ; shift 2 ;;
+    --verbose) verbose=true ; shift ;;
     -h|--help) usage; exit 1 ;;
     --) shift; break ;;
     -*|--*=) usage; exit 1 ;;
@@ -39,19 +55,47 @@ eval set -- "$action"
 action="${action#"${action%%[![:space:]]*}"}"
 
 declare -A total_balances
+declare -a export_data
 
 initialize() {
-  if [ -z "$api_endpoint" ]; then
-    api_endpoint="https://api.s0.p.hmny.io"
+  if [ -z "$network" ]; then
+    network="pangaea"
   fi
+  
+  case $network in
+  main|mainnet)
+    chain_id=mainnet
+    if [ -z "$api_endpoint" ]; then
+      api_endpoint="https://api.s0.t.hmny.io"
+    fi
+    ;;
+  pga|pangaea|testnet)
+    chain_id=testnet
+    if [ -z "$api_endpoint" ]; then
+      api_endpoint="https://api.s0.p.hmny.io"
+    fi
+    ;;
+  dev|devnet)
+    chain_id=pangaea
+    if [ -z "$api_endpoint" ]; then
+      api_endpoint="https://api.s0.pga.hmny.io"
+    fi
+    ;;
+  *)
+    ;;
+  esac
   
   if [ ! -z "$amount" ]; then
     convert_to_integer "$amount"
     amount=$converted
   fi
   
-  if [ -z "$export_file" ]; then
-    export_file="export.txt"
+  if [ -z "$tx_passphrase" ]; then
+    tx_passphrase="harmony-one"
+  fi
+  
+  if [ -z "$verbose" ]; then
+    verbose=false
   fi
   
   packages=(curl jq)
@@ -99,23 +143,88 @@ install_package_dependency() {
 
 parse_addresses() {
   if [ -z "$addresses_string" ]; then
-    if [ ! -z "$file_path" ] && test -f $file_path; then
-      IFS=$'\n' read -d '' -r -a addresses < $file_path
+    if [ ! -z "$input_file" ] && test -f $input_file; then
+      IFS=$'\n' read -d '' -r -a addresses < $input_file
     fi
   else
     addresses_string="$(echo -e "${addresses_string}" | tr -d '[:space:]')"
     addresses=($(echo "${addresses_string}" | tr ',' '\n'))
   fi
-  
-  if [ -z "$addresses" ] || [ ${#addresses[@]} -eq 0 ]; then
-    error_message "You didn't provide any addresses to use together with the commands, please specify either a file using --file or a set of addresses using --addresses"
-    exit 1
-  fi
 }
 
 transfer() {
-  echo "To be implemented!"
-  exit 1
+  if [ -n "$tx_from" ] && [ -n "$tx_from_shard" ] && [ -n "$tx_to_shard" ] && [ -n "$amount" ]; then
+    if [ -n "$addresses" ] || [ ${#addresses[@]} -gt 0 ]; then
+      for address in "${addresses[@]}"; do
+        send_transaction "$address"
+      done
+    else
+      if [ -n "$tx_to" ]; then
+        send_transaction "$tx_to"
+      else
+        error_message "Missing some arguments! Please provide a receiver address using --tx-to"
+      fi
+    fi
+    
+    if [ -n "$export_file" ] && (( ${#export_data[@]} )); then
+      export_data=( "address,txhash,status" "${export_data[@]:0}" )
+      rm -rf $export_file
+      touch $export_file
+      printf "%s\n" "${export_data[@]}" > $export_file
+    fi
+
+  else
+    error_message "Missing some arguments! Please provide values for --tx-from, --tx-from-shard, --tx-to-shard, --amount"
+  fi
+}
+
+send_transaction() {
+  local receiver_address=$1
+  
+  info_message "Sending transaction from $tx_from (shard id: $tx_from_shard) to $receiver_address (shard id: $tx_to_shard), amount: $amount, chain id: $chain_id"
+
+  tx_command="transfer --from $tx_from --from-shard $tx_from_shard --to $receiver_address --to-shard $tx_to_shard --amount $amount --chain-id $chain_id --passphrase $tx_passphrase"
+
+  if [ ! -z "$tx_wait" ]; then
+    tx_command="$tx_command --wait-for-confirm $tx_wait"
+  fi
+
+  api_command "$tx_command"
+  
+  parse_tx
+}
+
+parse_tx() {
+  if [ -n "$api_response" ]; then
+    status=$(echo "${api_response}" | jq ".result.status" | tr -d '"')
+    transaction_hash=$(echo "${api_response}" | jq ".result.transactionHash" | tr -d '"')
+    
+    if [ -n "$transaction_hash" ] && [ ! "$transaction_hash" = "null" ]; then
+      if [ "$status" = "0x1" ]; then
+        success_message "Transaction ${transaction_hash} was successful!"
+        echo
+        export_data+=("${receiver_address},${transaction_hash},success")
+      else
+        info_message "Transaction ${transaction_hash} failed!"
+        echo
+        export_data+=("${receiver_address},,failed")
+      fi
+    
+    else
+      transaction_hash=$(echo "${api_response}" | jq '.["transaction-receipt"]' | tr -d '"')
+      
+      if [ -n "$transaction_hash" ] && [ ! "$transaction_hash" = "null" ]; then
+        info_message "Received transaction receipt: ${transaction_hash} - transaction is in a pending state"
+        echo
+        export_data+=("${receiver_address},${transaction_hash},pending")
+      fi
+    fi
+    
+  else
+    info_message "Transaction failed!"
+    echo
+    export_data+=("${receiver_address},,failed")
+  fi
 }
 
 verify_exact_balances() {
@@ -125,25 +234,33 @@ verify_exact_balances() {
   fi
   
   balances
-  declare -a export_wallets
   
   for wallet in "${!total_balances[@]}"; do
     total_balance=${total_balances[$wallet]}
     
     if (( total_balance < amount )); then
       echo "Wallet $wallet has a balance lesser than $amount! Total balance is $total_balance"
-      export_wallets+=("${wallet}")
+      export_data+=("${wallet}")
     fi
   done
   
-  if (( ${#export_wallets[@]} )); then
+  if [ -n "$export_file" ] && (( ${#export_data[@]} )); then
     rm -rf $export_file
     touch $export_file
-    printf "%s\n" "${export_wallets[@]}" > $export_file
+    printf "%s\n" "${export_data[@]}" > $export_file
+  fi
+}
+
+verify_addresses_have_been_provided() {
+  if [ -z "$addresses" ] || [ ${#addresses[@]} -eq 0 ]; then
+    error_message "You didn't provide any addresses to use together with the commands, please specify either a file using --file or a set of addresses using --addresses"
+    exit 1
   fi
 }
 
 balances() {
+  verify_addresses_have_been_provided
+  
   for address in "${addresses[@]}"; do
     check_balance_for_address
   done
@@ -171,8 +288,19 @@ check_balance_for_address() {
 }
 
 api_command() {
-  local cmd=$1
-  api_response=$(./hmy --node=$api_endpoint $cmd)
+  local cmd="./hmy --node=$api_endpoint $1"
+  
+  if [ "$verbose" = true ]; then
+    #cmd="$cmd --verbose"
+    info_message "Executing api command: $cmd"
+  fi
+  
+  api_response=$($cmd)
+  
+  if [ "$verbose" = true ]; then
+    info_message "Api response: $api_response"
+    echo
+  fi
 }
 
 #
@@ -223,6 +351,7 @@ output_banner() {
   output_header "Running pga.sh: Pangaea tool v${version}"
   current_time=`date`  
   info_message "You're running ${bold_text}${script_name}${normal_text} as ${bold_text}${executing_user}${normal_text}. Current time is: ${bold_text}${current_time}${normal_text}."
+  echo
 }
 
 output_header() {
