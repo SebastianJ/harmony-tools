@@ -405,7 +405,6 @@ compile_binaries() {
     success_message "Successfully compiled hmy!"
     cp -R dist/* $build_path
     success_message "The compiled binary is now located in ${build_path}"
-    echo
   fi
   
   output_footer
@@ -416,14 +415,23 @@ compile_binaries() {
 #
 upload_to_s3() {
   if [ "$should_upload_to_s3" = true ] && [ ! -z "$s3_url" ]; then
+    output_header "${header_index}. Upload - uploading binaries to Amazon S3"
+    ((header_index++))
+  
+    info_message "Starting compilation of harmony, bootnode and wallet binaries (this can take a while - sometimes several minutes)..."
+
     cd $build_path
 
     info_message "Uploading binaries from ${build_path} ..."
+    echo ""
 
     for binary in "${statics[@]}"; do
       info_message "Uploading ${binary} to ${s3_url}/${binary} ..."
       aws s3 cp $binary $s3_url/$binary --acl public-read
+      echo ""
     done
+
+    output_footer
   fi
 }
 
