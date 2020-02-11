@@ -365,7 +365,7 @@ compile_binaries() {
   output_header "${header_index}. Build - compiling binaries"
   ((header_index++))
   
-  info_message "Starting compilation of harmony, bls and mcl binaries (this can take a while - sometimes several minutes)..."
+  info_message "Starting compilation of harmony, bootnode and wallet binaries (this can take a while - sometimes several minutes)..."
   
   rm -rf $build_path
   mkdir -p $build_path
