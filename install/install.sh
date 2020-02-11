@@ -74,12 +74,12 @@ install() {
   echo ""
 
   if [ "$should_download_node_sh" = true ]; then
-    node_sh_version=$(./node.sh -v)
-    echo "Node.sh version: ${node_sh_version}"
+    echo "Node.sh version:"
+    ./node.sh -v
   fi
 
-  harmony_version=$(./node.sh -V)
-  echo "Harmony binary version: ${harmony_version}"
+  echo "Harmony binary version:"
+  ./node.sh -V
   
   echo ""
 }
