@@ -33,7 +33,7 @@ do
 done
 
 initialize() {
-  binaries=(harmony bootnode wallet hmy)
+  binaries=(harmony bootnode hmy)
 
   if [ -z "$should_download_node_sh" ]; then
     should_download_node_sh=false
@@ -56,22 +56,31 @@ download_binaries() {
 }
 
 download_node_sh() {
-  echo ""
-  echo "Downloading the latest node.sh from harmony-one/harmony (master) ..."
-  rm -rf node.sh && wget ${node_sh_url} && chmod u+x node.sh
+  if [ "$should_download_node_sh" = true ]; then
+    echo ""
+    echo "Downloading the latest node.sh from harmony-one/harmony (master) ..."
+    rm -rf node.sh && wget ${node_sh_url} && chmod u+x node.sh
+  fi
 }
 
 install() {
   initialize
   download_binaries
-
-  if [ "$should_download_node_sh" = true ]; then
-    download_node_sh
-  fi
+  download_node_sh
 
   echo "Everything has now been downloaded."
   echo ""
   echo "Make sure to start your node using -D to not overwrite your custom binaries!"
+  echo ""
+
+  if [ "$should_download_node_sh" = true ]; then
+    node_sh_version=$(./node.sh -v)
+    echo "Node.sh version: ${node_sh_version}"
+  fi
+
+  harmony_version=$(./node.sh -V)
+  echo "Harmony binary version: ${harmony_version}"
+  
   echo ""
 }
 
