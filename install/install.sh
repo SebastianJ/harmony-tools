@@ -11,8 +11,9 @@ usage() {
    cat << EOT
 Usage: $0 [option] command
 Options:
-   --node   if a new node.sh file should be downloaded from harmony-one/harmony (master)
-   --help   print this help section
+   --node       if a new node.sh file should be downloaded from harmony-one/harmony (master)
+   --s3-url     what s3 base url to use for uploading binaries (defaults to s3://tools.harmony.one/release/linux-x86_64/harmony)
+   --help       print this help section
 EOT
 }
 
@@ -20,6 +21,7 @@ while [ $# -gt 0 ]
 do
   case $1 in
   --node) should_download_node_sh=true ;;
+  --s3-url) s3_url="$2" ; shift;;
   -h|--help) usage; exit 1;;
   (--) shift; break;;
   (-*) usage; exit 1;;
@@ -29,12 +31,14 @@ do
 done
 
 initialize() {
-  s3_url="s3://tools.harmony.one/release/linux-x86_64/harmony"
-
   binaries=(harmony bootnode wallet hmy)
 
   if [ -z "$should_download_node_sh" ]; then
     should_download_node_sh=false
+  fi
+
+  if [ -z "$s3_url" ]; then
+    s3_url="s3://tools.harmony.one/release/linux-x86_64/harmony"
   fi
 }
 

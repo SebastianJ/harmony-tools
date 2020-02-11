@@ -36,6 +36,7 @@ do
   --harmony-branch) harmony_branch="$2" ; shift;;
   --hmy-branch) hmy_branch="$2" ; shift;;
   --upload) should_upload_to_s3=true ;;
+  --s3-url) s3_url="$2" ; shift;;
   --verbose) verbose=true ;;
   --apt-get-update) run_apt_get_update=true ;;
   -h|--help) usage; exit 1;;
