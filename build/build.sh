@@ -100,7 +100,7 @@ set_variables() {
     packages+=(bison libbison-dev m4)
   fi
 
-  statics=(harmony bootnode wallet hmy)
+  binaries=(harmony bootnode hmy)
   
   repositories_path=$go_path/src/github.com/$organization
   profile_file=".bash_profile"
@@ -424,7 +424,7 @@ upload_to_s3() {
     info_message "Starting to upload binaries from ${build_path} to ${s3_url} ..."
     echo ""
 
-    for binary in "${statics[@]}"; do
+    for binary in "${binaries[@]}"; do
       info_message "Uploading ${binary} to ${s3_url}/${binary} ..."
       aws s3 cp $binary $s3_url/$binary --acl public-read
       echo ""
