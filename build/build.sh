@@ -410,7 +410,10 @@ upload_to_s3() {
   if [ "$should_upload_to_s3" = true ] && [ ! -z "$s3_url" ]; then
     cd $build_path
 
+    info_message "Uploading binaries from ${build_path} ..."
+
     for binary in "${statics[@]}"; do
+      info_message "Uploading ${binary} to ${s3_url}/${binary} ..."
       aws s3 cp $binary $s3_url/$binary --acl public-read
     done
   fi
