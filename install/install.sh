@@ -50,6 +50,7 @@ download_binaries() {
 }
 
 download_node_sh() {
+  echo ""
   echo "Downloading the latest node.sh from harmony-one/harmony (master) ..."
   rm -rf node.sh && wget https://raw.githubusercontent.com/harmony-one/harmony/master/scripts/node.sh && chmod u+x node.sh
 }
