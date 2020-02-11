@@ -3,7 +3,7 @@
 # Harmony custom build script - compiles bleeding edge binaries based on the latest master (or user specified) branch of the harmony and go-sdk git repositories
 version="0.0.1"
 script_name="build.sh"
-default_go_version="go1.12"
+default_go_version="go1.13.7"
 
 #
 # Arguments/configuration
@@ -18,6 +18,8 @@ Options:
    --go-version                       what version of golang to install, defaults to ${default_go_version}
    --harmony-branch           name    which git branch to use for the harmony, bls and mcl git repositories (defaults to master)
    --hmy-branch               name    which git branch to use for the go-sdk/hmy git repository (defaults to master)
+   --upload                           if the script should upload the compiled binaries to S3
+   --s3-url                           what s3 base url to use for uploading binaries (defaults to s3://tools.harmony.one/release/linux-x86_64/harmony)
    --verbose                          run the script in verbose mode
    --help                             print this help section
 EOT
@@ -32,6 +34,7 @@ do
   --go-version) go_version="$2" ; shift;;
   --harmony-branch) harmony_branch="$2" ; shift;;
   --hmy-branch) hmy_branch="$2" ; shift;;
+  --upload) should_upload_to_s3=true ;;
   --verbose) verbose=true ;;
   -h|--help) usage; exit 1;;
   (--) shift; break;;
@@ -51,9 +54,13 @@ set_variables() {
   if [ -z "$install_using_gvm" ]; then
     install_using_gvm=false
   fi
+
+    if [ -z "$should_upload_to_s3" ]; then
+    should_upload_to_s3=false
+  fi
   
   if [ -z "$build_path" ]; then
-    build_path=$HOME/harmony
+    build_path=$HOME/harmony/build
   fi
 
   if [ -z "$go_path" ]; then
@@ -71,6 +78,10 @@ set_variables() {
   if [ -z "$hmy_branch" ]; then
     hmy_branch="master"
   fi
+
+  if [ -z "$s3_url" ]; then
+    s3_url="s3://tools.harmony.one/release/linux-x86_64/harmony"
+  fi
   
   executing_user=$(whoami)
   
@@ -81,6 +92,8 @@ set_variables() {
   if [ "$install_using_gvm" = true ]; then
     packages+=(bison libbison-dev m4)
   fi
+
+  statics=(harmony bootnode wallet hmy)
   
   repositories_path=$go_path/src/github.com/$organization
   profile_file=".bash_profile"
@@ -181,7 +194,7 @@ install_go() {
 
 regular_go_installation() {
   if ! test -d /usr/local/go/bin; then
-    #set_go_version
+    set_go_version
     output_sub_header "Installation - installing Go version ${go_version} using the regular go install method"
     
     info_message "Downloading go installation archive..."
@@ -211,7 +224,7 @@ regular_go_installation() {
 }
 
 gvm_go_installation() {
-  #set_go_version
+  set_go_version
   output_sub_header "Installation - installing GVM and Go version ${go_version} using GVM"
   
   sudo rm -rf $HOME/.gvm
@@ -358,16 +371,14 @@ compile_binaries() {
   mkdir -p $build_path
   
   if [ "$verbose" = true ]; then
-    cd $repositories_path/harmony && make
+    cd $repositories_path/harmony && make linux_static
   else
-    cd $repositories_path/harmony && make >/dev/null 2>&1
+    cd $repositories_path/harmony && make linux_static >/dev/null 2>&1
   fi
   
   if test -f bin/harmony; then
-    success_message "Successfully compiled harmony, bls and mcl binaries!"
+    success_message "Successfully compiled harmony, bootnode and wallet binaries!"
     cp -R bin/* $build_path
-    cp $repositories_path/bls/lib/libbls384_256.so $build_path
-    cp $repositories_path/mcl/lib/libmcl.so $build_path
     success_message "The compiled binaries are now located in ${build_path}"
     echo
   fi
@@ -377,9 +388,9 @@ compile_binaries() {
   export GOPATH=$go_path
   
   if [ "$verbose" = true ]; then
-    cd $repositories_path/go-sdk && make
+    cd $repositories_path/go-sdk && make static
   else
-    cd $repositories_path/go-sdk && make >/dev/null 2>&1
+    cd $repositories_path/go-sdk && make static >/dev/null 2>&1
   fi
   
   if test -f dist/hmy; then
@@ -390,6 +401,19 @@ compile_binaries() {
   fi
   
   output_footer
+}
+
+#
+# Upload
+#
+upload_to_s3() {
+  if [ "$should_upload_to_s3" = true ] && [ ! -z "$s3_url" ]; then
+    cd $build_path
+
+    for binary in "${statics[@]}"; do
+      aws s3 cp $binary $s3_url/$binary --acl public-read
+    done
+  fi
 }
 
 #
@@ -476,7 +500,8 @@ build() {
   install_go
   install_git_repos
   compile_binaries
-  download_node_script
+  #download_node_script
+  upload_to_s3
 }
 
 build
