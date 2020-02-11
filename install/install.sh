@@ -76,6 +76,7 @@ install() {
   if [ "$should_download_node_sh" = true ]; then
     echo "Node.sh version:"
     ./node.sh -v
+    echo ""
   fi
 
   echo "Harmony binary version:"
