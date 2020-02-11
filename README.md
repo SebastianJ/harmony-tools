@@ -1,16 +1,26 @@
 # harmony-tools
 Scripts and tools for Harmony.one
 
+## install/install.sh
+install.sh downloads the custom compiled static binaries from Amazon S3. It can also download the latest node.sh from harmony-one/harmony (master) using the flag --node
 
-## build.sh
-build.sh is a custom build script that compiles the harmony + hmy binaries using the master branches from harmony-one/harmony and harmony-one/go-sdk.
+### Installation/Usage:
 
-The script has currently only been tested on Ubuntu 16.04 and 18.04 - compatibility with other distros and versions will be added eventually.
+
+```
+bash <(curl -sSL https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/install/install.sh) --node
+```
+
+
+## build/build.sh
+build.sh is a custom build script that statically compiles the harmony, bootnode, wallet and hmy binaries using the master branches from harmony-one/harmony and harmony-one/go-sdk.
+
+It also features support for uploading the binaries to Amazon S3.
 
 ### Installation:
 
 ```
-curl -LO https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/build/build.sh && chmod u+x build.sh
+curl -LOs https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/build/build.sh && chmod u+x build.sh
 ./build.sh
 ```
 
@@ -23,7 +33,7 @@ You can proceed to copy all of the binaries to a separate directory or run the n
 If you're using node.sh in conjunction with this custom build you need to pass -D as a parameter to node.sh in order to stop it from downloading and overwriting the binaries, e.g:
 
 ```
-sudo ./node.sh -D -k bls.key -N dev -i 0
+./node.sh -k bls.key -N staking -z -D -S (or however you want to run, running as sudo or non-sudo etc)
 ```
 
 ### Display all available options:

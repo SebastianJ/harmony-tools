@@ -44,7 +44,7 @@ initialize() {
 
 download_binaries() {
   for binary in "${binaries[@]}"; do
-    echo "Downloading ${binary} ..."
+    echo "Downloading ${binary} from ${s3_url}/${binary} ..."
     rm -rf ${binary} && wget ${s3_url}/${binary} && chmod u+x ${binary}
   done
 }
@@ -55,6 +55,7 @@ download_node_sh() {
 }
 
 install() {
+  initialize
   download_binaries
 
   if [ "$should_download_node_sh" = true ]; then
@@ -62,6 +63,7 @@ install() {
   fi
 
   echo "Everything has now been downloaded."
+  echo ""
   echo "Make sure to start your node using -D to not overwrite your custom binaries!"
   echo ""
 }
