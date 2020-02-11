@@ -418,11 +418,9 @@ upload_to_s3() {
     output_header "${header_index}. Upload - uploading binaries to Amazon S3"
     ((header_index++))
   
-    info_message "Starting compilation of harmony, bootnode and wallet binaries (this can take a while - sometimes several minutes)..."
-
     cd $build_path
 
-    info_message "Uploading binaries from ${build_path} ..."
+    info_message "Starting to upload binaries from ${build_path} to ${s3_url} ..."
     echo ""
 
     for binary in "${statics[@]}"; do
