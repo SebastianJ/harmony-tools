@@ -39,6 +39,10 @@ initialize() {
     should_download_node_sh=false
   fi
 
+  if [ -z "$should_download_bootnode" ]; then
+    should_download_bootnode=false
+  fi
+
   if [ -z "$node_sh_url" ]; then
     node_sh_url="https://raw.githubusercontent.com/harmony-one/harmony/master/scripts/node.sh"
   fi
