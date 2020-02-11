@@ -20,6 +20,7 @@ Options:
    --hmy-branch               name    which git branch to use for the go-sdk/hmy git repository (defaults to master)
    --upload                           if the script should upload the compiled binaries to S3
    --s3-url                           what s3 base url to use for uploading binaries (defaults to s3://tools.harmony.one/release/linux-x86_64/harmony)
+   --apt-get-update                   if apt-get update should run
    --verbose                          run the script in verbose mode
    --help                             print this help section
 EOT
@@ -36,6 +37,7 @@ do
   --hmy-branch) hmy_branch="$2" ; shift;;
   --upload) should_upload_to_s3=true ;;
   --verbose) verbose=true ;;
+  --apt-get-update) run_apt_get_update=true ;;
   -h|--help) usage; exit 1;;
   (--) shift; break;;
   (-*) usage; exit 1;;
@@ -55,8 +57,12 @@ set_variables() {
     install_using_gvm=false
   fi
 
-    if [ -z "$should_upload_to_s3" ]; then
+  if [ -z "$should_upload_to_s3" ]; then
     should_upload_to_s3=false
+  fi
+
+  if [ -z "$run_apt_get_update" ]; then
+    run_apt_get_update=false
   fi
   
   if [ -z "$build_path" ]; then
@@ -110,12 +116,14 @@ check_dependencies() {
   output_header "${header_index}. Installation - installing missing dependencies (if not already installed)"
   ((header_index++))
   
-  info_message "Updating apt-get..."
-  
-  if [ "$verbose" = true ]; then
-    sudo apt-get update -y --fix-missing
-  else
-    sudo apt-get update -y --fix-missing >/dev/null 2>&1
+  if [ "$run_apt_get_update" = true ]; then
+    info_message "Updating apt-get..."
+    
+    if [ "$verbose" = true ]; then
+      sudo apt-get update -y --fix-missing
+    else
+      sudo apt-get update -y --fix-missing >/dev/null 2>&1
+    fi
   fi
   
   success_message "apt-get updated!"
