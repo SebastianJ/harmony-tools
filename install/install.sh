@@ -14,6 +14,7 @@ Options:
    --node                   if a new node.sh file should be downloaded from harmony-one/harmony (master)
    --node-sh-url    path    where to download node.sh from (defaults to https://raw.githubusercontent.com/harmony-one/harmony/master/scripts/node.sh)
    --binaries-url   path    where to download the binaries from (defaults to http://tools.harmony.one.s3.amazonaws.com/release/linux-x86_64/harmony)
+   --bootnode               if the bootnode binary should be downloaded
    --help                   print this help section
 EOT
 }
@@ -24,6 +25,7 @@ do
   --node) should_download_node_sh=true ;;
   --node-sh-url) node_sh_url="$2" ; shift;;
   --binaries-url) binaries_url="$2" ; shift;;
+  --bootnode) should_download_bootnode=true ;;
   -h|--help) usage; exit 1;;
   (--) shift; break;;
   (-*) usage; exit 1;;
@@ -33,8 +35,6 @@ do
 done
 
 initialize() {
-  binaries=(harmony bootnode hmy)
-
   if [ -z "$should_download_node_sh" ]; then
     should_download_node_sh=false
   fi
@@ -45,6 +45,12 @@ initialize() {
 
   if [ -z "$binaries_url" ]; then
     binaries_url="http://tools.harmony.one.s3.amazonaws.com/release/linux-x86_64/harmony"
+  fi
+
+  binaries=(harmony hmy)
+
+  if [ "$should_download_bootnode" = true ]; then
+    binaries+=(bootnode)
   fi
 }
 
