@@ -11,7 +11,9 @@ usage() {
    cat << EOT
 Usage: $0 [option] command
 Options:
-   --node                   if a new node.sh file should be downloaded from harmony-one/harmony (master)
+   --branch         name    the main harmony release branch to install (defaults to master)
+   --staking                download the specific staking release based on the t3 branch
+   --node                   if a new node.sh file should be downloaded from harmony-one/harmony (defaults to master)
    --node-sh-url    path    where to download node.sh from (defaults to https://raw.githubusercontent.com/harmony-one/harmony/master/scripts/node.sh)
    --binaries-url   path    where to download the binaries from (defaults to http://tools.harmony.one.s3.amazonaws.com/release/linux-x86_64/harmony)
    --bootnode               if the bootnode binary should be downloaded
@@ -22,6 +24,8 @@ EOT
 while [ $# -gt 0 ]
 do
   case $1 in
+  --branch) branch="$2" ; shift;;
+  --staking) branch="t3" ;;
   --node) should_download_node_sh=true ;;
   --node-sh-url) node_sh_url="$2" ; shift;;
   --binaries-url) binaries_url="$2" ; shift;;
@@ -35,6 +39,10 @@ do
 done
 
 initialize() {
+  if [ -z "$branch" ]; then
+    branch="master"
+  fi
+  
   if [ -z "$should_download_node_sh" ]; then
     should_download_node_sh=false
   fi
@@ -43,18 +51,26 @@ initialize() {
     should_download_bootnode=false
   fi
 
+  if [ -z "$should_download_tui" ]; then
+    should_download_tui=false
+  fi
+
   if [ -z "$node_sh_url" ]; then
-    node_sh_url="https://raw.githubusercontent.com/harmony-one/harmony/master/scripts/node.sh"
+    node_sh_url="https://raw.githubusercontent.com/harmony-one/harmony/${branch}/scripts/node.sh"
   fi
 
   if [ -z "$binaries_url" ]; then
-    binaries_url="http://tools.harmony.one.s3.amazonaws.com/release/linux-x86_64/harmony"
+    binaries_url="http://tools.harmony.one.s3.amazonaws.com/release/linux-x86_64/harmony/${branch}"
   fi
 
   binaries=(harmony hmy)
 
   if [ "$should_download_bootnode" = true ]; then
     binaries+=(bootnode)
+  fi
+
+  if [ "$should_download_tui" = true ]; then
+    binaries+=(harmony-tui)
   fi
 }
 

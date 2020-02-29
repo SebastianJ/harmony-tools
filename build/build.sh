@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Harmony custom build script - compiles bleeding edge binaries based on the latest master (or user specified) branch of the harmony and go-sdk git repositories
-version="0.0.1"
+# Harmony custom build script - compiles latest master (or user specified) branch of the harmony, bls, mcl, go-sdk and harmony-tui git repos
+version="0.0.2"
 script_name="build.sh"
 default_go_version="go1.13.7"
 
@@ -16,8 +16,11 @@ Options:
    --go-path                  path    the go path where git repositories should be cloned, will default to $GOPATH
    --gvm                              install go using gvm
    --go-version                       what version of golang to install, defaults to ${default_go_version}
-   --harmony-branch           name    which git branch to use for the harmony, bls and mcl git repositories (defaults to master)
-   --hmy-branch               name    which git branch to use for the go-sdk/hmy git repository (defaults to master)
+   --harmony-branch           name    which git branch to use for the harmony-one/harmony repo (defaults to master)
+   --bls-branch               name    which git branch to use for the harmony-one/bls repo (defaults to master)
+   --mcl-branch               name    which git branch to use for the harmony-one/mcl repo (defaults to master)
+   --hmy-branch               name    which git branch to use for the harmony-one/go-sdk repo (defaults to master)
+   --tui-branch               name    which git branch to use for the harmony-one/harmony-tui repo (defaults to master)
    --upload                           if the script should upload the compiled binaries to S3
    --s3-url                           what s3 base url to use for uploading binaries (defaults to s3://tools.harmony.one/release/linux-x86_64/harmony)
    --apt-get-update                   if apt-get update should run
@@ -34,7 +37,10 @@ do
   --gvm) install_using_gvm=true ;;
   --go-version) go_version="$2" ; shift;;
   --harmony-branch) harmony_branch="$2" ; shift;;
+  --bls-branch) bls_branch="$2" ; shift;;
+  --mcl-branch) mcl_branch="$2" ; shift;;
   --hmy-branch) hmy_branch="$2" ; shift;;
+  --tui-branch) tui_branch="$2" ; shift;;
   --upload) should_upload_to_s3=true ;;
   --s3-url) s3_url="$2" ; shift;;
   --verbose) verbose=true ;;
@@ -66,10 +72,6 @@ set_variables() {
     run_apt_get_update=false
   fi
   
-  if [ -z "$build_path" ]; then
-    build_path=$HOME/harmony/build
-  fi
-
   if [ -z "$go_path" ]; then
     go_path=$HOME/go
   fi
@@ -81,18 +83,35 @@ set_variables() {
   if [ -z "$harmony_branch" ]; then
     harmony_branch="master"
   fi
+
+  if [ -z "$bls_branch" ]; then
+    bls_branch="master"
+  fi
+
+  if [ -z "$mcl_branch" ]; then
+    mcl_branch="master"
+  fi
   
   if [ -z "$hmy_branch" ]; then
     hmy_branch="master"
   fi
 
+  if [ -z "$tui_branch" ]; then
+    tui_branch="master"
+  fi
+
+  if [ -z "$build_path" ]; then
+    build_path=$HOME/harmony/build/dist/$harmony_branch
+  fi
+
   if [ -z "$s3_url" ]; then
-    s3_url="s3://tools.harmony.one/release/linux-x86_64/harmony"
+    s3_url="s3://tools.harmony.one/release/linux-x86_64/harmony/${harmony_branch}"
   fi
   
   executing_user=$(whoami)
   
   organization="harmony-one"
+  # Skip harmony-tui for now - can't build a static binary using make linux_static
   repositories=(mcl bls harmony go-sdk)
   packages=(curl build-essential libgmp-dev libssl-dev bison)
   
@@ -318,31 +337,20 @@ update_git_repo() {
   git fetch >/dev/null 2>&1
   
   case $repo_name in
-  harmony|bls|mcl)
-    info_message "Updating git repo ${repo_name} using branch ${harmony_branch}"
-    
-    if [ "$verbose" = true ]; then
-      git checkout --force $harmony_branch
-      git pull
-    else
-      git checkout --force $harmony_branch >/dev/null 2>&1
-      git pull >/dev/null 2>&1
-    fi
-
-    success_message "Successfully installed/updated git repo ${repo_name} using branch ${harmony_branch}"
+  harmony)
+    update_specific_git_repo "${repo_name}" "${harmony_branch}"
+    ;;
+  bls)
+    update_specific_git_repo "${repo_name}" "${bls_branch}"
+    ;;
+  mcl)
+    update_specific_git_repo "${repo_name}" "${mcl_branch}"
     ;;
   go-sdk)
-    info_message "Updating git repo ${repo_name} using branch ${hmy_branch}"
-    
-    if [ "$verbose" = true ]; then
-      git checkout --force $hmy_branch
-      git pull
-    else
-      git checkout --force $hmy_branch >/dev/null 2>&1
-      git pull >/dev/null 2>&1
-    fi
-
-    success_message "Successfully installed/updated git repo ${repo_name} using branch ${hmy_branch}"
+    update_specific_git_repo "${repo_name}" "${hmy_branch}"
+    ;;
+  harmony-tui)
+    update_specific_git_repo "${repo_name}" "${tui_branch}"
     ;;
   *)
     ;;
@@ -351,9 +359,26 @@ update_git_repo() {
   echo
 }
 
+update_specific_git_repo() {
+  local repo_name="${1}"
+  local git_branch="${2}"
+
+  info_message "Updating git repo ${repo_name} using branch ${git_branch}"
+    
+  if [ "$verbose" = true ]; then
+    git checkout --force $git_branch
+    git pull
+  else
+    git checkout --force $git_branch >/dev/null 2>&1
+    git pull >/dev/null 2>&1
+  fi
+
+  success_message "Successfully installed/updated git repo ${repo_name} using branch ${git_branch}"
+}
+
 cleanup_previous_build() {
   case $repo_name in
-  harmony)
+  harmony|harmony-tui)
     rm -rf $repositories_path/$repo_name/bin/*
     ;;
   go-sdk)
@@ -378,6 +403,7 @@ compile_binaries() {
   
   rm -rf $build_path
   mkdir -p $build_path
+  export GOPATH=$go_path
   
   if [ "$verbose" = true ]; then
     cd $repositories_path/harmony && make linux_static
@@ -393,9 +419,6 @@ compile_binaries() {
   fi
   
   info_message "Starting compilation of hmy (this can take a while - sometimes several minutes)..."
-  
-  export GOPATH=$go_path
-  
   if [ "$verbose" = true ]; then
     cd $repositories_path/go-sdk && make static
   else
@@ -406,6 +429,21 @@ compile_binaries() {
     success_message "Successfully compiled hmy!"
     cp -R dist/* $build_path
     success_message "The compiled binary is now located in ${build_path}"
+  fi
+
+  info_message "Starting compilation of harmony-tui (this can take a while - sometimes several minutes)..."
+    
+  if [ "$verbose" = true ]; then
+    cd $repositories_path/harmony-tui && make linux_static
+  else
+    cd $repositories_path/harmony-tui && make linux_static >/dev/null 2>&1
+  fi
+  
+  if test -f bin/harmony-tui; then
+    success_message "Successfully compiled harmony-tui!"
+    cp -R bin/* $build_path
+    success_message "The compiled binary is now located in ${build_path}"
+    echo
   fi
   
   output_footer
@@ -432,16 +470,6 @@ upload_to_s3() {
 
     output_footer
   fi
-}
-
-#
-# Scripts
-#
-download_node_script() {
-  cd $build_path
-  curl -O --silent --output /dev/null https://raw.githubusercontent.com/harmony-one/harmony/$harmony_branch/scripts/node.sh
-  chmod u+x node.sh
-  cd - >/dev/null 2>&1
 }
 
 #
@@ -518,7 +546,6 @@ build() {
   install_go
   install_git_repos
   compile_binaries
-  #download_node_script
   upload_to_s3
 }
 
