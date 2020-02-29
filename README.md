@@ -6,11 +6,15 @@ install.sh downloads the custom compiled static binaries from Amazon S3. It can 
 
 ### Installation/Usage:
 
-
+Normal release:
 ```
 bash <(curl -sSL https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/install/install.sh) --node
 ```
 
+Staking release:
+```
+bash <(curl -sSL https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/install/install.sh) --staking --node
+```
 
 ## build/build.sh
 build.sh is a custom build script that statically compiles the harmony, bootnode, wallet and hmy binaries using the master branches from harmony-one/harmony and harmony-one/go-sdk.
@@ -19,9 +23,16 @@ It also features support for uploading the binaries to Amazon S3.
 
 ### Installation:
 
+Normal release:
 ```
 curl -LOs https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/build/build.sh && chmod u+x build.sh
 ./build.sh
+```
+
+Staking t3/release:
+```
+curl -LOs https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/build/build.sh && chmod u+x build.sh
+./build.sh --harmony-branch t3
 ```
 
 This will compile all related harmony and go-sdk/hmy binaries and save them to ~/harmony by default. If you want to change the path where the binaries are copied use `--path YOUR_CUSTOM_PATH`.
