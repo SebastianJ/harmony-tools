@@ -11,13 +11,14 @@ usage() {
    cat << EOT
 Usage: $0 [option] command
 Options:
-   --branch         name    the main harmony release branch to install (defaults to master)
-   --staking                download the specific staking release based on the t3 branch
-   --node                   if a new node.sh file should be downloaded from harmony-one/harmony (defaults to master)
-   --node-sh-url    path    where to download node.sh from (defaults to https://raw.githubusercontent.com/harmony-one/harmony/master/scripts/node.sh)
-   --binaries-url   path    where to download the binaries from (defaults to http://tools.harmony.one.s3.amazonaws.com/release/linux-x86_64/harmony)
-   --bootnode               if the bootnode binary should be downloaded
-   --help                   print this help section
+   --branch                         name    the main harmony release branch to install (defaults to master)
+   --staking                        download the specific staking release based on the t3 branch
+   --enable-double-signing          download the specific staking release based on the t3 branch
+   --node                           if a new node.sh file should be downloaded from harmony-one/harmony (defaults to master)
+   --node-sh-url            path    where to download node.sh from (defaults to https://raw.githubusercontent.com/harmony-one/harmony/master/scripts/node.sh)
+   --binaries-url           path    where to download the binaries from (defaults to http://tools.harmony.one.s3.amazonaws.com/release/linux-x86_64/harmony)
+   --bootnode                       if the bootnode binary should be downloaded
+   --help                           print this help section
 EOT
 }
 
@@ -26,6 +27,7 @@ do
   case $1 in
   --branch) branch="$2" ; shift;;
   --staking) branch="t3" ;;
+  --enable-double-signing) enable_double_signing=true ;;
   --node) should_download_node_sh=true ;;
   --node-sh-url) node_sh_url="$2" ; shift;;
   --binaries-url) binaries_url="$2" ; shift;;
@@ -41,6 +43,10 @@ done
 initialize() {
   if [ -z "$branch" ]; then
     branch="master"
+  fi
+
+  if [ -z "$enable_double_signing" ]; then
+    enable_double_signing=false
   fi
   
   if [ -z "$should_download_node_sh" ]; then
@@ -61,6 +67,11 @@ initialize() {
 
   if [ -z "$binaries_url" ]; then
     binaries_url="http://tools.harmony.one.s3.amazonaws.com/release/linux-x86_64/harmony/${branch}"
+  fi
+
+  if [ "$enable_double_signing" = true ]; then
+    binaries_url="http://tools.harmony.one.s3.amazonaws.com/release/linux-x86_64/harmony/${branch}/enable-double-signing"
+    node_sh_url="https://raw.githubusercontent.com/SebastianJ/harmony/enable-double-signing/scripts/node.sh"
   fi
 
   binaries=(harmony hmy)

@@ -21,6 +21,7 @@ Options:
    --mcl-branch               name    which git branch to use for the harmony-one/mcl repo (defaults to master)
    --hmy-branch               name    which git branch to use for the harmony-one/go-sdk repo (defaults to master)
    --tui-branch               name    which git branch to use for the harmony-one/harmony-tui repo (defaults to master)
+   --enable-double-signing            enables double-signing behavior by using github.com/SebastianJ/harmony/enable-double-signing
    --upload                           if the script should upload the compiled binaries to S3
    --s3-url                           what s3 base url to use for uploading binaries (defaults to s3://tools.harmony.one/release/linux-x86_64/harmony)
    --apt-get-update                   if apt-get update should run
@@ -41,6 +42,7 @@ do
   --mcl-branch) mcl_branch="$2" ; shift;;
   --hmy-branch) hmy_branch="$2" ; shift;;
   --tui-branch) tui_branch="$2" ; shift;;
+  --enable-double-signing) enable_double_signing=true ;;
   --upload) should_upload_to_s3=true ;;
   --s3-url) s3_url="$2" ; shift;;
   --verbose) verbose=true ;;
@@ -59,13 +61,23 @@ initialize() {
   set_formatting
 }
 
-set_variables() {  
+set_variables() {
+  executing_user=$(whoami)
+  organization="harmony-one"
+  harmony_repo_organization="harmony-one"  
+  profile_file=".bash_profile"
+  double_signing_branch="enable-double-signing"
+
   if [ -z "$install_using_gvm" ]; then
     install_using_gvm=false
   fi
 
   if [ -z "$should_upload_to_s3" ]; then
     should_upload_to_s3=false
+  fi
+
+  if [ -z "$enable_double_signing" ]; then
+    enable_double_signing=false
   fi
 
   if [ -z "$run_apt_get_update" ]; then
@@ -100,6 +112,14 @@ set_variables() {
     tui_branch="master"
   fi
 
+  if [ -z "$revert_harmony_commit" ]; then
+    revert_harmony_commit=""
+  fi
+
+  if [ -z "$revert_harmony_commit_branch" ]; then
+    revert_harmony_commit_branch=""
+  fi
+
   if [ -z "$build_path" ]; then
     build_path=$HOME/harmony/build/dist/$harmony_branch
   fi
@@ -107,22 +127,25 @@ set_variables() {
   if [ -z "$s3_url" ]; then
     s3_url="s3://tools.harmony.one/release/linux-x86_64/harmony/${harmony_branch}"
   fi
+
+  if [ "$enable_double_signing" = true ]; then
+    build_path=$build_path/enable-double-signing
+    s3_url=$s3_url/enable-double-signing
+    harmony_repo_organization="SebastianJ"
+  fi
+
+  repositories_path=$go_path/src/github.com/$organization
+  harmony_repositories_path=$go_path/src/github.com/$harmony_repo_organization
   
-  executing_user=$(whoami)
+  harmony_repos=(mcl bls harmony)
+  tools_repos=(go-sdk) # Skip harmony-tui for now - can't build a static binary using make linux_static
   
-  organization="harmony-one"
-  # Skip harmony-tui for now - can't build a static binary using make linux_static
-  repositories=(mcl bls harmony go-sdk)
   packages=(curl build-essential libgmp-dev libssl-dev bison)
-  
   if [ "$install_using_gvm" = true ]; then
     packages+=(bison libbison-dev m4)
   fi
 
   binaries=(harmony bootnode hmy)
-  
-  repositories_path=$go_path/src/github.com/$organization
-  profile_file=".bash_profile"
 }
 
 create_base_directories() {
@@ -297,48 +320,57 @@ source_environment_variable_scripts() {
 
 
 #
-# Build/compilation
+# Git
 #
 install_git_repos() {
   output_header "${header_index}. Git - fetching the latest versions of all required git repositories"
   ((header_index++))
   
-  for repo in "${repositories[@]}"; do
-    install_git_repo $repo
+  for repo in "${harmony_repos[@]}"; do
+    install_git_repo "$harmony_repositories_path" "$harmony_repo_organization" "$repo"
+  done
+
+  for repo in "${tools_repos[@]}"; do
+    install_git_repo "$repositories_path" "$organization" "$repo"
   done
   
   output_footer
 }
 
 install_git_repo() {
-  repo_name="${1}"
+  local current_repositories_path="${1}"
+  local current_organization="${2}"
+  local repo_name="${3}"
   
-  mkdir -p $repositories_path
-  cd $repositories_path
+  mkdir -p $current_repositories_path
+  cd $current_repositories_path
   
   if test -d $repo_name; then
     cd $repo_name
-    update_git_repo
+    update_git_repo "${repo_name}"
   else
     if [ "$verbose" = true ]; then
-      git clone https://github.com/${organization}/${repo_name}
+      git clone https://github.com/${current_organization}/${repo_name}
     else
-      git clone https://github.com/${organization}/${repo_name} >/dev/null 2>&1
+      git clone https://github.com/${current_organization}/${repo_name} >/dev/null 2>&1
     fi
     
     cd $repo_name
-    update_git_repo
+    update_git_repo "${repo_name}"
   fi
-  
-  cleanup_previous_build
 }
 
 update_git_repo() {
+  local repo_name="${1}"
+
   git fetch >/dev/null 2>&1
   
   case $repo_name in
   harmony)
     update_specific_git_repo "${repo_name}" "${harmony_branch}"
+    if [ "$enable_double_signing" = true ]; then
+      merge_double_signing_functionality "${repo_name}" "${harmony_branch}"
+    fi
     ;;
   bls)
     update_specific_git_repo "${repo_name}" "${bls_branch}"
@@ -376,24 +408,74 @@ update_specific_git_repo() {
   success_message "Successfully installed/updated git repo ${repo_name} using branch ${git_branch}"
 }
 
-cleanup_previous_build() {
-  case $repo_name in
-  harmony|harmony-tui)
-    rm -rf $repositories_path/$repo_name/bin/*
-    ;;
-  go-sdk)
-    rm -rf $repositories_path/$repo_name/dist/*
-    ;;
-  bls|mcl)
-    rm -rf $repositories_path/$repo_name/lib/*
-    ;;
-  *)
-    ;;
-  esac
+merge_double_signing_functionality() {
+  local repo_name="${1}"
+  local git_branch="${2}"
+
+  if [ "$verbose" = true ]; then
+    git checkout --force $double_signing_branch
+    git merge --strategy=ours --message "compile" $git_branch
+    git checkout $git_branch
+    git merge --message "compile" $double_signing_branch
+  else
+    git checkout --force $double_signing_branch >/dev/null 2>&1
+    git merge --strategy=ours --message "compile" $git_branch >/dev/null 2>&1
+    git checkout $git_branch >/dev/null 2>&1
+    git merge --message "compile" $double_signing_branch >/dev/null 2>&1
+  fi
+}
+
+cleanup_double_signing_functionality() {
+  if [ "$enable_double_signing" = true ]; then
+    cd $harmony_repositories_path/harmony
+
+    if [ "$verbose" = true ]; then  
+      git stash
+    else
+      git stash >/dev/null 2>&1
+    fi
+  fi
+}
+
+revert_specific_commit() {
+  local repo_name="${1}"
+  local git_branch="${2}"
+  local specific_commit="${3}"
+  
+  if [ ! -z "$specific_commit" ]; then
+    info_message "Reverting commit '${specific_commit}' in ${repo_name} (${git_branch})"
+    info_message "Will create the branch '${revert_harmony_commit_branch}' for the purpose of reversing the commit '${specific_commit}'"
+    if [ "$verbose" = true ]; then
+      git branch -D $revert_harmony_commit_branch
+      git checkout --force -b $revert_harmony_commit_branch $git_branch
+      git revert $specific_commit
+    else
+      git branch -D $revert_harmony_commit_branch >/dev/null 2>&1
+      git checkout --force -b $revert_harmony_commit_branch $git_branch >/dev/null 2>&1
+      git revert $specific_commit >/dev/null 2>&1
+    fi
+  fi
+}
+
+cleanup_git_revert_branch() {
+  local repo_name="${1}"
+
+  if [ ! -z "$specific_commit" ]; then
+    info_message "Cleaning up special revert commit branch '${revert_harmony_commit_branch}' in harmony-one/harmony (based on branch: ${harmony_branch})"
+    cd $repositories_path/harmony
+
+    if [ "$verbose" = true ]; then
+      git checkout --force master
+      git branch -D $revert_harmony_commit_branch
+    else
+      git checkout --force master >/dev/null 2>&1
+      git branch -D $revert_harmony_commit_branch >/dev/null 2>&1
+    fi
+  fi
 }
 
 #
-# Compilation
+# Build / Compilation
 #
 compile_binaries() {
   output_header "${header_index}. Build - compiling binaries"
@@ -405,10 +487,18 @@ compile_binaries() {
   mkdir -p $build_path
   export GOPATH=$go_path
   
+  compile_harmony_binary
+  compile_hmy_binary
+  #compile_harmony_tui
+  
+  output_footer
+}
+
+compile_harmony_binary() {
   if [ "$verbose" = true ]; then
-    cd $repositories_path/harmony && make linux_static
+    cd $harmony_repositories_path/harmony && make linux_static
   else
-    cd $repositories_path/harmony && make linux_static >/dev/null 2>&1
+    cd $harmony_repositories_path/harmony && make linux_static >/dev/null 2>&1
   fi
   
   if test -f bin/harmony; then
@@ -417,7 +507,9 @@ compile_binaries() {
     success_message "The compiled binaries are now located in ${build_path}"
     echo
   fi
-  
+}
+
+compile_hmy_binary() {
   info_message "Starting compilation of hmy (this can take a while - sometimes several minutes)..."
   if [ "$verbose" = true ]; then
     cd $repositories_path/go-sdk && make static
@@ -430,7 +522,9 @@ compile_binaries() {
     cp -R dist/* $build_path
     success_message "The compiled binary is now located in ${build_path}"
   fi
+}
 
+compile_harmony_tui() {
   info_message "Starting compilation of harmony-tui (this can take a while - sometimes several minutes)..."
     
   if [ "$verbose" = true ]; then
@@ -445,8 +539,22 @@ compile_binaries() {
     success_message "The compiled binary is now located in ${build_path}"
     echo
   fi
-  
-  output_footer
+}
+
+cleanup_previous_build() {
+  case $repo_name in
+  harmony|harmony-tui)
+    rm -rf $repositories_path/$repo_name/bin/*
+    ;;
+  go-sdk)
+    rm -rf $repositories_path/$repo_name/dist/*
+    ;;
+  bls|mcl)
+    rm -rf $repositories_path/$repo_name/lib/*
+    ;;
+  *)
+    ;;
+  esac
 }
 
 #
@@ -544,9 +652,11 @@ build() {
   output_banner
   check_dependencies
   install_go
+  cleanup_previous_build
   install_git_repos
   compile_binaries
   upload_to_s3
+  cleanup_double_signing_functionality
 }
 
 build
