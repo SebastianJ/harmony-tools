@@ -16,12 +16,13 @@ Options:
    --go-path                  path    the go path where git repositories should be cloned, will default to $GOPATH
    --gvm                              install go using gvm
    --go-version                       what version of golang to install, defaults to ${default_go_version}
-   --harmony-branch           name    which git branch to use for the harmony-one/harmony repo (defaults to master)
+   --branch           name    which git branch to use for the harmony-one/harmony repo (defaults to master)
    --bls-branch               name    which git branch to use for the harmony-one/bls repo (defaults to master)
    --mcl-branch               name    which git branch to use for the harmony-one/mcl repo (defaults to master)
    --hmy-branch               name    which git branch to use for the harmony-one/go-sdk repo (defaults to master)
    --tui-branch               name    which git branch to use for the harmony-one/harmony-tui repo (defaults to master)
    --enable-double-signing            enables double-signing behavior by using github.com/SebastianJ/harmony/enable-double-signing
+   --race                             enables -race compilation of the harmony binary
    --upload                           if the script should upload the compiled binaries to S3
    --s3-url                           what s3 base url to use for uploading binaries (defaults to s3://tools.harmony.one/release/linux-x86_64/harmony)
    --apt-get-update                   if apt-get update should run
@@ -37,12 +38,13 @@ do
   --go-path) go_path="${2%/}" ; shift;;
   --gvm) install_using_gvm=true ;;
   --go-version) go_version="$2" ; shift;;
-  --harmony-branch) harmony_branch="$2" ; shift;;
+  --branch) harmony_branch="$2" ; shift;;
   --bls-branch) bls_branch="$2" ; shift;;
   --mcl-branch) mcl_branch="$2" ; shift;;
   --hmy-branch) hmy_branch="$2" ; shift;;
   --tui-branch) tui_branch="$2" ; shift;;
   --enable-double-signing) enable_double_signing=true ;;
+  --race) enable_race_compilation=true ;;
   --upload) should_upload_to_s3=true ;;
   --s3-url) s3_url="$2" ; shift;;
   --verbose) verbose=true ;;
@@ -78,6 +80,10 @@ set_variables() {
 
   if [ -z "$enable_double_signing" ]; then
     enable_double_signing=false
+  fi
+
+  if [ -z "$enable_race_compilation" ]; then
+    enable_race_compilation=false
   fi
 
   if [ -z "$run_apt_get_update" ]; then
@@ -132,6 +138,11 @@ set_variables() {
     build_path=$build_path/enable-double-signing
     s3_url=$s3_url/enable-double-signing
     harmony_repo_organization="SebastianJ"
+  fi
+
+  if [ "$enable_race_compilation" = true ]; then
+    build_path=$build_path/race
+    s3_url=$s3_url/race
   fi
 
   repositories_path=$go_path/src/github.com/$organization
@@ -481,8 +492,6 @@ compile_binaries() {
   output_header "${header_index}. Build - compiling binaries"
   ((header_index++))
   
-  info_message "Starting compilation of harmony, bootnode and wallet binaries (this can take a while - sometimes several minutes)..."
-  
   rm -rf $build_path
   mkdir -p $build_path
   export GOPATH=$go_path
@@ -495,12 +504,27 @@ compile_binaries() {
 }
 
 compile_harmony_binary() {
-  if [ "$verbose" = true ]; then
-    cd $harmony_repositories_path/harmony && make linux_static
+  info_message "Starting compilation of harmony, bootnode and wallet binaries (this can take a while - sometimes several minutes)..."
+  cd $harmony_repositories_path/harmony
+
+  if [ "$enable_race_compilation" = true ]; then
+    if [ "$verbose" = true ]; then
+      make -C ../mcl
+      make -C ../bls minimised_static BLS_SWAP_G=1
+      ./scripts/go_executable_build.sh -s -r
+    else
+      make -C ../mcl  >/dev/null 2>&1
+      make -C ../bls minimised_static BLS_SWAP_G=1  >/dev/null 2>&1
+      ./scripts/go_executable_build.sh -s -r  >/dev/null 2>&1
+    fi
   else
-    cd $harmony_repositories_path/harmony && make linux_static >/dev/null 2>&1
+    if [ "$verbose" = true ]; then
+      make linux_static
+    else
+      make linux_static >/dev/null 2>&1
+    fi
   fi
-  
+
   if test -f bin/harmony; then
     success_message "Successfully compiled harmony, bootnode and wallet binaries!"
     cp -R bin/* $build_path

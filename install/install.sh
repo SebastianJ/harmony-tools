@@ -13,7 +13,8 @@ Usage: $0 [option] command
 Options:
    --branch                         name    the main harmony release branch to install (defaults to master)
    --staking                        download the specific staking release based on the t3 branch
-   --enable-double-signing          download the specific staking release based on the t3 branch
+   --enable-double-signing          download a double-signing enabled binary
+   --race                           download a binary compiled with race support
    --node                           if a new node.sh file should be downloaded from harmony-one/harmony (defaults to master)
    --node-sh-url            path    where to download node.sh from (defaults to https://raw.githubusercontent.com/harmony-one/harmony/master/scripts/node.sh)
    --binaries-url           path    where to download the binaries from (defaults to http://tools.harmony.one.s3.amazonaws.com/release/linux-x86_64/harmony)
@@ -28,6 +29,7 @@ do
   --branch) branch="$2" ; shift;;
   --staking) branch="t3" ;;
   --enable-double-signing) enable_double_signing=true ;;
+  --race) race=true ;;
   --node) should_download_node_sh=true ;;
   --node-sh-url) node_sh_url="$2" ; shift;;
   --binaries-url) binaries_url="$2" ; shift;;
@@ -47,6 +49,10 @@ initialize() {
 
   if [ -z "$enable_double_signing" ]; then
     enable_double_signing=false
+  fi
+
+  if [ -z "$race" ]; then
+    race=false
   fi
   
   if [ -z "$should_download_node_sh" ]; then
@@ -72,6 +78,10 @@ initialize() {
   if [ "$enable_double_signing" = true ]; then
     binaries_url="http://tools.harmony.one.s3.amazonaws.com/release/linux-x86_64/harmony/${branch}/enable-double-signing"
     node_sh_url="https://raw.githubusercontent.com/SebastianJ/harmony/enable-double-signing/scripts/node.sh"
+  fi
+
+  if [ "$race" = true ]; then
+    binaries_url="http://tools.harmony.one.s3.amazonaws.com/release/linux-x86_64/harmony/${branch}/race"
   fi
 
   binaries=(harmony hmy)
