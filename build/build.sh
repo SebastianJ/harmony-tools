@@ -22,7 +22,6 @@ Options:
    --hmy-branch               name    which git branch to use for the harmony-one/go-sdk repo (defaults to master)
    --tui-branch               name    which git branch to use for the harmony-one/harmony-tui repo (defaults to master)
    --enable-double-signing            enables double-signing behavior by using github.com/SebastianJ/harmony/enable-double-signing
-   --enable-pprof                     enables pprof support by using github.com/SebastianJ/harmony/feature-pprof-profiling
    --race                             enables -race compilation of the harmony binary
    --upload                           if the script should upload the compiled binaries to S3
    --s3-url                           what s3 base url to use for uploading binaries (defaults to s3://tools.harmony.one/release/linux-x86_64/harmony)
@@ -45,7 +44,6 @@ do
   --hmy-branch) hmy_branch="$2" ; shift;;
   --tui-branch) tui_branch="$2" ; shift;;
   --enable-double-signing) enable_double_signing=true ;;
-  --enable-pprof) enable_pprof=true ;;
   --race) enable_race_compilation=true ;;
   --upload) should_upload_to_s3=true ;;
   --s3-url) s3_url="$2" ; shift;;
@@ -82,10 +80,6 @@ set_variables() {
 
   if [ -z "$enable_double_signing" ]; then
     enable_double_signing=false
-  fi
-
-  if [ -z "$enable_pprof" ]; then
-    enable_pprof=false
   fi
 
   if [ -z "$enable_race_compilation" ]; then
@@ -144,13 +138,7 @@ set_variables() {
     build_path=$build_path/enable-double-signing
     s3_url=$s3_url/enable-double-signing
     harmony_repo_organization="SebastianJ"
-  fi
-
-  if [ "$enable_pprof" = true ]; then
-    build_path=$build_path/enable-pprof
-    s3_url=$s3_url/enable-pprof
-    harmony_repo_organization="SebastianJ"
-    harmony_branch="feature-pprof-profiling"
+    harmony_branch="double-signing-updated"
   fi
 
   if [ "$enable_race_compilation" = true ]; then
@@ -392,9 +380,9 @@ update_git_repo() {
   case $repo_name in
   harmony)
     update_specific_git_repo "${repo_name}" "${harmony_branch}"
-    if [ "$enable_double_signing" = true ]; then
-      merge_double_signing_functionality "${repo_name}" "${harmony_branch}"
-    fi
+    #if [ "$enable_double_signing" = true ]; then
+    #  merge_double_signing_functionality "${repo_name}" "${harmony_branch}"
+    #fi
     ;;
   bls)
     update_specific_git_repo "${repo_name}" "${bls_branch}"
@@ -693,7 +681,7 @@ build() {
   install_git_repos
   compile_binaries
   upload_to_s3
-  cleanup_double_signing_functionality
+  #cleanup_double_signing_functionality
 }
 
 build
