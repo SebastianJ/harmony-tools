@@ -63,3 +63,14 @@ Options:
    --hmy-branch               name    which git branch to use for the go-sdk/hmy git repository (defaults to master)
    --help                             print this help section
 ```
+
+## keys/generate.sh
+generate.sh is a helper script to help users with generating BLS key for specific shards
+
+It also features support for uploading the binaries to Amazon S3.
+
+### Usage:
+
+```
+bash <(curl -sSL https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/keys/generate.sh) --shard 0 --count 1
+```
