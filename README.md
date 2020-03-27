@@ -74,3 +74,22 @@ It also features support for uploading the binaries to Amazon S3.
 ```
 bash <(curl -sSL https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/keys/generate.sh) --shard 0 --count 1
 ```
+
+
+## double-signing/setup.sh
+double-signing/setup.sh runs a complete double-signing test scenario, it:
+
+- downloads the double-signing binary + relevant node.sh
+- starts the double-signing node
+- waits for the node to fully sync
+- funds a validator and delegator account
+- creates a validator on the specified shard and delegates one delegation to it
+- waits for the validator to join the committee
+- starts sending double-signing messages
+- checks for slashing and how much the validator and delegator were slashed (target 2%)
+
+### Installation/Usage:
+
+```
+bash <(curl -sSL https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/double-signing/setup.sh) --network stress --shard SHARD_ID --address ADDRESS_WITH_FUNDS
+```
