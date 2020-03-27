@@ -80,13 +80,14 @@ bash <(curl -sSL https://raw.githubusercontent.com/SebastianJ/harmony-tools/mast
 double-signing/setup.sh runs a complete double-signing test scenario, it:
 
 - downloads the double-signing binary + relevant node.sh
+- configures the double-signing settings
 - starts the double-signing node
 - waits for the node to fully sync
 - funds a validator and delegator account
-- creates a validator on the specified shard and delegates one delegation to it
+- creates a validator on the specified shard and delegates an additional delegation to it
 - waits for the validator to join the committee
 - starts sending double-signing messages
-- checks for slashing and how much the validator and delegator were slashed (target 2%)
+- checks for slashing being detected and how much the validator and delegator were slashed (target 2%)
 
 ### Installation/Usage:
 
