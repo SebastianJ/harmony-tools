@@ -22,8 +22,8 @@ Options:
   --tx-to           address     the transaction receiver address
   --tx-to-shard     shard-id    the transaction receiver shard id
   --tx-passphrase   passphrase  the passphrase for the wallet - will default to "harmony-one" unless specified for legacy reasons
-  --tx-wait         seconds     if you want to use --wait-for-confirm seconds to wait for transactions to finish
-  --api-endpoint    url         the API endpoint to use (defaults to https://api.s0.p.hmny.io)
+  --tx-wait         seconds     if you want to use --timeout seconds to wait for transactions to finish
+  --api-endpoint    url         the API endpoint to use (defaults to https://api.s0.os.hmny.io)
   --verbose                     enable verbose mode
   --help                        print this help section
 EOT
@@ -69,16 +69,14 @@ initialize() {
       api_endpoint="https://api.s0.t.hmny.io"
     fi
     ;;
-  pga|pangaea|testnet)
-    chain_id=testnet
+  pga|pangaea|ostn)
     if [ -z "$api_endpoint" ]; then
-      api_endpoint="https://api.s0.p.hmny.io"
+      api_endpoint="https://api.s0.os.hmny.io"
     fi
     ;;
-  dev|devnet)
-    chain_id=pangaea
+  stress|stressnet)
     if [ -z "$api_endpoint" ]; then
-      api_endpoint="https://api.s0.pga.hmny.io"
+      api_endpoint="https://api.s0.stn.hmny.io"
     fi
     ;;
   *)
@@ -106,11 +104,13 @@ initialize() {
 }
 
 check_dependencies() {
-  for package in "${packages[@]}"; do
-    install_package_dependency "$package"
-  done
-  
-  install_hmy
+  if [[ "$OSTYPE" == "linux-gnu" ]]; then
+    for package in "${packages[@]}"; do
+      install_package_dependency "$package"
+    done
+
+    install_hmy
+  fi
 }
 
 install_hmy() {
@@ -183,10 +183,10 @@ send_transaction() {
   
   info_message "Sending transaction from $tx_from (shard id: $tx_from_shard) to $receiver_address (shard id: $tx_to_shard), amount: $amount, chain id: $chain_id"
 
-  tx_command="transfer --from $tx_from --from-shard $tx_from_shard --to $receiver_address --to-shard $tx_to_shard --amount $amount --chain-id $chain_id --passphrase $tx_passphrase"
+  tx_command="transfer --from $tx_from --from-shard $tx_from_shard --to $receiver_address --to-shard $tx_to_shard --amount $amount --passphrase $tx_passphrase"
 
   if [ ! -z "$tx_wait" ]; then
-    tx_command="$tx_command --wait-for-confirm $tx_wait"
+    tx_command="$tx_command --timeout $tx_wait"
   fi
 
   api_command "$tx_command"
