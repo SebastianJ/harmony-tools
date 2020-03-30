@@ -287,11 +287,11 @@ create_validator() {
 
 trigger_double_signing() {
   echo "Triggering double-signing!"
-  echo "Sending a double-signing message every second for a total of ${double_signing_interval} second(s)"
+  echo "Sending a double-signing messages every second for a total of ${double_signing_interval} second(s)"
 
   for i in $(seq 1 $double_signing_interval)
   do
-    curl http://localhost:7777/trigger-next-double-sign
+    curl http://localhost:7777/trigger-next-double-sign #1> /dev/null 2>&1
     sleep 1
   done
   
@@ -329,6 +329,21 @@ trigger_double_signing() {
   fi
 }
 
+cleanup() {
+  # Cleanup tmux session - send CTRL+C to the node process, exit and press enter
+  tmux send -t "${tmux_session_id}" C-c
+  tmux send -t "${tmux_session_id}" "exit" Enter
+
+  # Session should've already been cleared out - but just make sure it is
+  tmux kill-session -t "${tmux_session_id}" 1> /dev/null 2>&1
+
+  # Remove accounts
+  ./hmy keys remove ${validator_account_name}
+  ./hmy keys remove ${delegator_account_name}
+
+  cd .. && rm -rf $node_id
+}
+
 convert_wei_to_number() {
   local wei="$1"
   converted=`printf '%.0f' $wei`
@@ -351,6 +366,8 @@ setup() {
 
   create_validator
   trigger_double_signing
+
+  cleanup
 }
 
 setup
