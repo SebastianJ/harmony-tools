@@ -19,6 +19,7 @@ Options:
    --double-signing-interval    seconds     how many seconds to send double-signing messages
    --gas-price                  price       what gas price to use for transactions (defaults to 1)
    --timeout                    seconds     what shard to start the node on
+   --cleanup                    bool        whether or not to perform cleanup (remove tmux session, remove db)
    --loop                                   run double-signing in an endless loop
    --help                                   print this help section
 EOT
@@ -35,6 +36,7 @@ do
   --double-signing-interval) double_signing_interval="$2" ; shift;;
   --gas-price) gas_price="$2" ; shift;;
   --timeout) timeout="$2" ; shift;;
+  --cleanup) cleanup="$2" ; shift;;
   --loop) loop=true;;
   -h|--help) usage; exit 1;;
   (--) shift; break;;
@@ -76,6 +78,10 @@ initialize() {
 
   if [ -z "$timeout" ]; then
     timeout=60
+  fi
+
+  if [ -z "$cleanup" ]; then
+    cleanup=true
   fi
 
   if [ -z "$loop" ]; then
@@ -403,7 +409,9 @@ setup() {
   create_validator
   trigger_double_signing
 
-  cleanup
+  if [ "$cleanup" = true ]; then
+    cleanup
+  fi
 }
 
 if [ "$loop" = true ]; then
