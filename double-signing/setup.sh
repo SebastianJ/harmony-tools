@@ -67,7 +67,7 @@ initialize() {
   fi
 
   if [ -z "$double_signing_interval" ]; then
-    double_signing_interval=240
+    double_signing_interval=180
   fi
 
   if [ -z "$gas_price" ]; then
