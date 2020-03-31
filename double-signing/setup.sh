@@ -19,6 +19,7 @@ Options:
    --double-signing-interval    seconds     how many seconds to send double-signing messages
    --gas-price                  price       what gas price to use for transactions (defaults to 1)
    --timeout                    seconds     what shard to start the node on
+   --loop                                   run double-signing in an endless loop
    --help                                   print this help section
 EOT
 }
@@ -76,6 +77,10 @@ initialize() {
     timeout=60
   fi
 
+  if [ -z "$loop" ]; then
+    loop=false
+  fi
+
   case $network in
     stress)
       node="https://api.s0.stn.hmny.io"
@@ -94,24 +99,51 @@ initialize() {
   tmux_session_id="harmony-${node_id}"
   validator_account_name="DS-Validator-${timestamp}"
   delegator_account_name="DS-Delegator-${timestamp}"
+  packages=(jq tmux curl)
 }
 
 check_dependencies() {
-  if ! command -v jq >/dev/null 2>&1; then
-    echo "You need jq installed in order to use this script, please install it:"
-    echo "Debian/Ubuntu: sudo apt-get install jq"
+  local missing_packages=()
+
+  for package in "${packages[@]}"; do
+    if ! command -v "${package}" >/dev/null 2>&1; then
+      missing_packages+=($package)
+    fi
+  done
+
+  if (( ${#missing_packages[@]} )); then
+    need_to_install=${missing_packages[@]}
+    echo "The following packages need to be installed: ${need_to_install}"
+    echo "Please install them using:"
+
+    if command -v apt-get >/dev/null 2>&1; then
+      echo "sudo apt-get install -y ${need_to_install}"
+    fi
+
+    if command -v yum >/dev/null 2>&1; then
+      echo "sudo yum install ${need_to_install}"
+    fi
+    
     exit 1
   fi
+}
 
-  if ! command -v tmux >/dev/null 2>&1; then
-    echo "You need tmux installed in order to use this script, please install it:"
-    echo "Debian/Ubuntu: sudo apt-get install tmux"
+check_funding_account() {
+  account_exists=`./hmy keys list | grep ${address} | grep -oam 1 -E "(one[a-z0-9]+)" | grep -oam 1 -E "one[a-z0-9]+"`
+  if [ -z "$account_exists" ]; then
+    echo "Can't find the address ${address} in your keystore - are you sure that you've added it to the keystore?"
     exit 1
   fi
+}
 
-  if ! command -v curl >/dev/null 2>&1; then
-    echo "You need curl installed in order to use this script, please install it:"
-    echo "Debian/Ubuntu: sudo apt-get install tmux"
+check_for_running_node() {
+  if ps aux | grep '[h]armony -bootnodes' > /dev/null; then
+    echo "You already have a running Harmony node! Please terminate it before running this script"
+    echo "Running node:"
+    ps aux | grep '[h]armony -bootnodes'
+    echo "You can shut down the old node using the below commmand:"
+    echo "kill $(ps aux | grep '[h]armony -bootnodes' | awk '{print $2}')"
+    echo ""
     exit 1
   fi
 }
@@ -354,8 +386,10 @@ convert_wei_to_number() {
 setup() {
   initialize
   check_dependencies
+  check_for_running_node
 
   install_node
+  check_funding_account
   configure_double_signing
   start_node
 
@@ -370,4 +404,14 @@ setup() {
   cleanup
 }
 
-setup
+if [ "$loop" = true ]; then
+  # Run in an infinite loop
+  while true; do
+    setup
+    if [ ! $? -eq 0 ]; then
+      break
+    fi
+  done
+else
+  setup
+fi

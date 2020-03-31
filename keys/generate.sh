@@ -50,6 +50,7 @@ initialize() {
   
   declare -ag keys
   generated=0
+  packages=(jq curl)
 }
 
 check_dependencies() {
@@ -59,9 +60,26 @@ check_dependencies() {
     exit 1
   fi
 
-  if ! dpkg-query -W "jq" >/dev/null 2>&1; then
-    echo "You need jq installed in order to use this script, please install it:"
-    echo "sudo apt-get install jq"
+  local missing_packages=()
+  for package in "${packages[@]}"; do
+    if ! command -v "${package}" >/dev/null 2>&1; then
+      missing_packages+=($package)
+    fi
+  done
+
+  if (( ${#missing_packages[@]} )); then
+    need_to_install=${missing_packages[@]}
+    echo "The following packages need to be installed: ${need_to_install}"
+    echo "Please install them using:"
+
+    if command -v apt-get >/dev/null 2>&1; then
+      echo "sudo apt-get install -y ${need_to_install}"
+    fi
+
+    if command -v yum >/dev/null 2>&1; then
+      echo "sudo yum install ${need_to_install}"
+    fi
+    
     exit 1
   fi
 }
