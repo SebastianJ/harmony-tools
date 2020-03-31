@@ -35,6 +35,7 @@ do
   --double-signing-interval) double_signing_interval="$2" ; shift;;
   --gas-price) gas_price="$2" ; shift;;
   --timeout) timeout="$2" ; shift;;
+  --loop) loop=true;;
   -h|--help) usage; exit 1;;
   (--) shift; break;;
   (-*) usage; exit 1;;
