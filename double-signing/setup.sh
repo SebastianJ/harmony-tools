@@ -364,7 +364,8 @@ trigger_double_signing() {
 cleanup() {
   # Cleanup tmux session - send CTRL+C to the node process, exit and press enter
   tmux send -t "${tmux_session_id}" C-c
-  tmux send -t "${tmux_session_id}" "exit" Enter
+  tmux send -t "${tmux_session_id}" "exit"
+  tmux send -t "${tmux_session_id}" Enter
 
   # Session should've already been cleared out - but just make sure it is
   tmux kill-session -t "${tmux_session_id}" 1> /dev/null 2>&1
