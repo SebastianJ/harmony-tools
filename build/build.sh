@@ -22,6 +22,7 @@ Options:
    --hmy-branch               name    which git branch to use for the harmony-one/go-sdk repo (defaults to master)
    --tui-branch               name    which git branch to use for the harmony-one/harmony-tui repo (defaults to master)
    --enable-double-signing            enables double-signing behavior by using github.com/SebastianJ/harmony/enable-double-signing
+   --disable-tx-validation            disables tx validation behavior by using github.com/SebastianJ/harmony/disable-tx-pool-checks
    --race                             enables -race compilation of the harmony binary
    --upload                           if the script should upload the compiled binaries to S3
    --s3-url                           what s3 base url to use for uploading binaries (defaults to s3://tools.harmony.one/release/linux-x86_64/harmony)
@@ -44,6 +45,7 @@ do
   --hmy-branch) hmy_branch="$2" ; shift;;
   --tui-branch) tui_branch="$2" ; shift;;
   --enable-double-signing) enable_double_signing=true ;;
+  --disable-tx-validation) disable_tx_validation=true ;;
   --race) enable_race_compilation=true ;;
   --upload) should_upload_to_s3=true ;;
   --s3-url) s3_url="$2" ; shift;;
@@ -68,7 +70,6 @@ set_variables() {
   organization="harmony-one"
   harmony_repo_organization="harmony-one"  
   profile_file=".bash_profile"
-  double_signing_branch="enable-double-signing"
 
   if [ -z "$install_using_gvm" ]; then
     install_using_gvm=false
@@ -80,6 +81,10 @@ set_variables() {
 
   if [ -z "$enable_double_signing" ]; then
     enable_double_signing=false
+  fi
+
+  if [ -z "$disable_tx_validation" ]; then
+    disable_tx_validation=false
   fi
 
   if [ -z "$enable_race_compilation" ]; then
@@ -139,6 +144,13 @@ set_variables() {
     s3_url=$s3_url/enable-double-signing
     harmony_repo_organization="SebastianJ"
     harmony_branch="double-signing-updated"
+  fi
+
+  if [ "$disable_tx_validation" = true ]; then
+    build_path=$build_path/disable-tx-pool-checks
+    s3_url=$s3_url/disable-tx-pool-checks
+    harmony_repo_organization="SebastianJ"
+    harmony_branch="disable-tx-pool-checks"
   fi
 
   if [ "$enable_race_compilation" = true ]; then
@@ -380,9 +392,6 @@ update_git_repo() {
   case $repo_name in
   harmony)
     update_specific_git_repo "${repo_name}" "${harmony_branch}"
-    #if [ "$enable_double_signing" = true ]; then
-    #  merge_double_signing_functionality "${repo_name}" "${harmony_branch}"
-    #fi
     ;;
   bls)
     update_specific_git_repo "${repo_name}" "${bls_branch}"
@@ -418,35 +427,6 @@ update_specific_git_repo() {
   fi
 
   success_message "Successfully installed/updated git repo ${repo_name} using branch ${git_branch}"
-}
-
-merge_double_signing_functionality() {
-  local repo_name="${1}"
-  local git_branch="${2}"
-
-  if [ "$verbose" = true ]; then
-    git checkout --force $double_signing_branch
-    git merge --strategy=ours --message "compile" $git_branch
-    git checkout $git_branch
-    git merge --message "compile" $double_signing_branch
-  else
-    git checkout --force $double_signing_branch >/dev/null 2>&1
-    git merge --strategy=ours --message "compile" $git_branch >/dev/null 2>&1
-    git checkout $git_branch >/dev/null 2>&1
-    git merge --message "compile" $double_signing_branch >/dev/null 2>&1
-  fi
-}
-
-cleanup_double_signing_functionality() {
-  if [ "$enable_double_signing" = true ]; then
-    cd $harmony_repositories_path/harmony
-
-    if [ "$verbose" = true ]; then  
-      git stash
-    else
-      git stash >/dev/null 2>&1
-    fi
-  fi
 }
 
 revert_specific_commit() {
@@ -681,7 +661,6 @@ build() {
   install_git_repos
   compile_binaries
   upload_to_s3
-  #cleanup_double_signing_functionality
 }
 
 build
