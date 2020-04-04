@@ -94,3 +94,12 @@ double-signing/setup.sh runs a complete double-signing test scenario, it:
 ```
 bash <(curl -sSL https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/double-signing/setup.sh) --network stress --shard SHARD_ID --address ADDRESS_WITH_FUNDS
 ```
+
+## pprof/report.sh
+pprof/report.sh starts a script that will routinely dump pprof reports to a specified folder (defaults to pprof relative to the dir the script is executed in)
+
+### Installation/Usage:
+
+```
+bash <(curl -sSL https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/pprof/report.sh) --address localhost:6060
+```
