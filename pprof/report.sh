@@ -120,13 +120,13 @@ report() {
   report_path="${path}/${timestamp}"
   mkdir -p $report_path
   echo "Generating memory allocs report"
-  go tool pprof --pdf http://$address/debug/pprof/allocs > $report_path/memory-allocs.pdf >/dev/null 2>&1
+  go tool pprof --pdf http://$address/debug/pprof/allocs > $report_path/memory-allocs.pdf
 
   echo "Generating memory heap report"
-  go tool pprof --pdf http://$address/debug/pprof/heap > $report_path/memory-heap.pdf >/dev/null 2>&1
+  go tool pprof --pdf http://$address/debug/pprof/heap > $report_path/memory-heap.pdf
 
   echo "Generating cpu profile report"
-  go tool pprof --pdf http://$address/debug/pprof/profile?seconds=$cpu_interval > $report_path/cpu-profile.pdf >/dev/null 2>&1 &
+  go tool pprof --pdf http://$address/debug/pprof/profile?seconds=$cpu_interval > $report_path/cpu-profile.pdf &
 
   echo "Waiting ${interval} before generating the next set of reports..."
 }
