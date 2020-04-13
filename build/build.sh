@@ -3,7 +3,7 @@
 # Harmony custom build script - compiles latest master (or user specified) branch of the harmony, bls, mcl, go-sdk and harmony-tui git repos
 version="0.0.2"
 script_name="build.sh"
-default_go_version="go1.13.7"
+default_go_version="go1.14.2"
 
 #
 # Arguments/configuration
