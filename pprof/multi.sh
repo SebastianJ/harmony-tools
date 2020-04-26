@@ -1,31 +1,28 @@
 #!/bin/bash
 
-# Harmony double-signing setup
+# Author: Sebastian Johnsson - https://github.com/SebastianJ
+
 version="0.0.1"
-script_name="report.sh"
+script_name="multi.sh"
 
 #
 # Arguments/configuration
-#
+# 
 usage() {
    cat << EOT
 Usage: $0 [option] command
 Options:
-   --path               path            where to export reports
-   --address            address         the address to the pprof server
-   --cpu-interval       seconds         how long pprof should profile the cpu (defaults to 60 seconds)
-   --interval           interval        how often to export reports
-   --help                               print this help section
+   --hosts  hosts   a comma separated/delimited list of hosts you want to output reports for
+   --file   path    path to file containing hosts to output reports for
+   --help           print this help
 EOT
 }
 
 while [ $# -gt 0 ]
 do
   case $1 in
-  --path) path="${2%/}" ; shift;;
-  --address) address="$2" ; shift;;
-  --cpu-interval) cpu_interval="$2" ; shift;;
-  --interval) interval="$2" ; shift;;
+  --hosts) hosts_string="${2}" ; shift;;
+  --file) file_path="${2}" ; shift;;
   -h|--help) usage; exit 1;;
   (--) shift; break;;
   (-*) usage; exit 1;;
@@ -35,22 +32,7 @@ do
 done
 
 set_vars() {
-  if [ -z "$path" ]; then
-    path="pprof"
-  fi
-
-  if [ -z "$address" ]; then
-    address="localhost:6070"
-  fi
-
-  if [ -z "$cpu_interval" ]; then
-    cpu_interval=60
-  fi
-
-  if [ -z "$interval" ]; then
-    interval="5m"
-  fi
-
+  default_port=6060
   packages=(curl tmux graphviz)
 }
 
@@ -114,28 +96,49 @@ initialize() {
   check_dependencies
 }
 
-report() {
-  timestamp=$(date -u "+%Y-%m-%d-%H-%M-%S-%Z")
-  report_path="${path}/${timestamp}"
-  mkdir -p $report_path
-  echo "Generating memory allocs report"
-  go tool pprof --pdf http://$address/debug/pprof/allocs > $report_path/memory-allocs.pdf
-
-  echo "Generating memory heap report"
-  go tool pprof --pdf http://$address/debug/pprof/heap > $report_path/memory-heap.pdf
-
-  echo "Generating cpu profile report"
-  (go tool pprof --pdf http://$address/debug/pprof/profile?seconds=$cpu_interval > $report_path/cpu-profile.pdf)
-
-  echo "Waiting ${interval} before generating the next set of reports..."
+parse_hosts() {
+  if [ -z "$hosts_string" ]; then
+    if [ ! -z "$file_path" ] && test -f $file_path; then
+      IFS=$'\n' read -d '' -r -a hosts < $file_path
+    else
+      identify_node_processes
+    fi
+  else
+    hosts_string="$(echo -e "${hosts_string}" | tr -d '[:space:]')"
+    hosts=($(echo "${hosts_string}" | tr ',' '\n'))
+  fi
+  
+  if [ -z "$hosts" ] || [ ${#hosts[@]} -eq 0 ]; then
+    echo ""
+    error_message "You didn't supply any hosts to export profiles for. Please provide hosts using the --hosts parameter"
+    echo ""
+    exit 1
+  fi
 }
 
-initialize
+report() {
+  for host in "${hosts[@]}"
+  do
+    report_for_host "${host}"
+  done
+}
 
-while true; do
-  report
-  if [ ! $? -eq 0 ]; then
-    break
+report_for_host() {
+  local host=$1
+  
+  # Add the default port (6060) to hosts missing the port component
+  if [[ ! $host =~ :[0-9]{4}$ ]]; then
+    host="${host}:${default_port}"
   fi
-  sleep $interval
-done
+  
+  echp "Starting to generate reports for host ${host}"
+  bash <(curl -sSL https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/pprof/report.sh) --address ${host} --path pprof/${host} &
+}
+
+run() {
+  initialize
+  parse_hosts
+  report
+}
+
+run
