@@ -103,3 +103,10 @@ pprof/report.sh starts a script that will routinely dump pprof reports to a spec
 ```
 bash <(curl -sSL https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/pprof/report.sh) --address localhost:6060
 ```
+
+## pprof/multi.sh
+pprof/multi.sh utilizes `pprof/report.sh` to concurrently profile remote (or local) pprof enabled hosts with the help of tmux.
+
+```
+bash <(curl -sSL https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/pprof/multi.sh) --file hosts.txt
+```
