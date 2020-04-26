@@ -128,9 +128,25 @@ report_for_host() {
   if [[ ! $host =~ :[0-9]{4}$ ]]; then
     host="${host}:${default_port}"
   fi
+
+  host_path=${host//\./\-}
+  host_path=${host_path//\:/\-}
+
+  tmux_session_id="harmony-pprof-reporting-${host_path}"
+  tmux send -t "${tmux_session_id}" C-c
+  tmux send -t "${tmux_session_id}" "exit"
+  tmux send -t "${tmux_session_id}" Enter
+  tmux kill-session -t "${tmux_session_id}" 1> /dev/null 2>&1
   
-  echp "Starting to generate reports for host ${host}"
-  bash <(curl -sSL https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/pprof/report.sh) --address ${host} --path pprof/${host} &
+  echo "Starting to generate reports for host ${host} ..."
+
+  tmux new-session -d -s "${tmux_session_id}"
+  local command="bash <(curl -sSL https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/pprof/report.sh) --address ${host} --path pprof/${host_path}"
+
+  echo "Will start dumping pprof reports using the following command: ${command}"
+  tmux send -t "${tmux_session_id}" "$command" ENTER
+
+  echo "Tmux session started! Attach to the session using tmux attach-session -t ${tmux_session_id}"
 }
 
 run() {

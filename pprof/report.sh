@@ -125,7 +125,7 @@ report() {
   go tool pprof --pdf http://$address/debug/pprof/heap > $report_path/memory-heap.pdf
 
   echo "Generating cpu profile report"
-  (go tool pprof --pdf http://$address/debug/pprof/profile?seconds=$cpu_interval > $report_path/cpu-profile.pdf)
+  go tool pprof --pdf http://$address/debug/pprof/profile?seconds=$cpu_interval > $report_path/cpu-profile.pdf
 
   echo "Waiting ${interval} before generating the next set of reports..."
 }
