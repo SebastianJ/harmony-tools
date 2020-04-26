@@ -90,8 +90,13 @@ check_dependencies() {
   fi
 }
 
+cleanup_pprof() {
+  rm -rf ~/pprof
+}
+
 initialize() {
   set_vars
+  cleanup_pprof
   detect_distro
   check_dependencies
 }
