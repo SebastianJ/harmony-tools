@@ -100,8 +100,6 @@ parse_hosts() {
   if [ -z "$hosts_string" ]; then
     if [ ! -z "$file_path" ] && test -f $file_path; then
       IFS=$'\n' read -d '' -r -a hosts < $file_path
-    else
-      identify_node_processes
     fi
   else
     hosts_string="$(echo -e "${hosts_string}" | tr -d '[:space:]')"
