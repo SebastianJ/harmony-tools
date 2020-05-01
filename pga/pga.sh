@@ -12,7 +12,7 @@ Commands:
   verify-exact-balances       verify exact balances for provided addresses
 
 Options:
-  --network         name        name of the network to use - mainnet / pangaea / devnet (dev)
+  --network         name        name of the network to use - mainnet / pangaea / stressnet
   --addresses       addresses   a list of addresses, comma separated, e.g: one152yn6nvyjuln3kp4m2rljj6hvfapfhdxsmr79a,one1sefnsv9wa4xh3fffmr9f0mvfs7d09wjjnjucuy
   --input-file      path        the file to load wallet addresses from (preferred method)
   --export-file     path        the file to export data to (if the invoked method utilizes exports)
@@ -21,8 +21,8 @@ Options:
   --tx-from-shard   shard-id    the transaction sender shard id
   --tx-to           address     the transaction receiver address
   --tx-to-shard     shard-id    the transaction receiver shard id
-  --tx-passphrase   passphrase  the passphrase for the wallet - will default to "harmony-one" unless specified for legacy reasons
-  --tx-wait         seconds     if you want to use --timeout seconds to wait for transactions to finish
+  --tx-passphrase   passphrase  the passphrase for the wallet - will default to an empty string unless specified
+  --tx-timeout      seconds     if you want to use --tx-timeout seconds to wait for transactions to finish
   --api-endpoint    url         the API endpoint to use (defaults to https://api.s0.os.hmny.io)
   --verbose                     enable verbose mode
   --help                        print this help section
@@ -42,7 +42,7 @@ while (( "$#" )); do
     --tx-to) tx_to="$2" ; shift 2 ;;
     --tx-to-shard) tx_to_shard="$2" ; shift 2 ;;
     --tx-passphrase) tx_passphrase="$2" ; shift 2 ;;
-    --tx-wait) tx_wait="$2" ; shift 2 ;;
+    --tx-timeout) tx_timeout="$2" ; shift 2 ;;
     --api-endpoint) api_endpoint="$2" ; shift 2 ;;
     --verbose) verbose=true ; shift ;;
     -h|--help) usage; exit 1 ;;
@@ -70,11 +70,13 @@ initialize() {
     fi
     ;;
   pga|pangaea|ostn)
+    chain_id=pangaea
     if [ -z "$api_endpoint" ]; then
       api_endpoint="https://api.s0.os.hmny.io"
     fi
     ;;
   stress|stressnet)
+    chain_id=stressnet
     if [ -z "$api_endpoint" ]; then
       api_endpoint="https://api.s0.stn.hmny.io"
     fi
@@ -89,7 +91,7 @@ initialize() {
   fi
   
   if [ -z "$tx_passphrase" ]; then
-    tx_passphrase="harmony-one"
+    tx_passphrase=""
   fi
   
   if [ -z "$verbose" ]; then
@@ -103,13 +105,57 @@ initialize() {
   set_formatting
 }
 
+detect_distro() {
+    if command -v apt-get >/dev/null 2>&1; then
+      distro="debian"
+    fi
+
+    if command -v yum >/dev/null 2>&1; then
+      distro="rhel"
+    fi
+}
+
 check_dependencies() {
+  local missing_packages=()
+
   if [[ "$OSTYPE" == "linux-gnu" ]]; then
+    install_hmy
+
     for package in "${packages[@]}"; do
-      install_package_dependency "$package"
+      case $distro in
+      debian)
+        if ! dpkg-query -W $package >/dev/null 2>&1; then
+          missing_packages+=($package)
+        fi
+        ;;
+      rhel)
+        if ! rpm -q $package >/dev/null 2>&1; then
+          missing_packages+=($package)
+        fi
+        ;;
+      *)
+        ;;
+      esac
     done
 
-    install_hmy
+    if (( ${#missing_packages[@]} )); then
+      need_to_install=${missing_packages[@]}
+      echo "The following packages need to be installed: ${need_to_install}"
+      echo "Please install them using:"
+
+      case $distro in
+      debian)
+        echo "sudo apt-get install -y ${need_to_install}"
+        ;;
+      rhel)
+        echo "sudo yum install ${need_to_install}"
+        ;;
+      *)
+        ;;
+      esac
+      
+      exit 1
+    fi
   fi
 }
 
@@ -121,23 +167,6 @@ install_hmy() {
     if test -f hmy; then
       success_message "Successfully installed hmy!"
     fi
-  fi
-}
-
-install_package_dependency() {
-  package_name=$1
-
-  if ! dpkg-query -W $package_name >/dev/null 2>&1; then
-    info_message "${package_name} wasn't detected on your system, proceeding to install it (this might take a while)..."
-    
-    if [ "$verbose" = true ]; then
-      sudo apt-get -y install $package_name
-    else
-      sudo apt-get -y install $package_name >/dev/null 2>&1
-    fi
-    
-    success_message "$package_name successfully installed!"
-    echo
   fi
 }
 
@@ -183,10 +212,14 @@ send_transaction() {
   
   info_message "Sending transaction from $tx_from (shard id: $tx_from_shard) to $receiver_address (shard id: $tx_to_shard), amount: $amount, chain id: $chain_id"
 
-  tx_command="transfer --from $tx_from --from-shard $tx_from_shard --to $receiver_address --to-shard $tx_to_shard --amount $amount --passphrase $tx_passphrase"
+  tx_command="transfer --from $tx_from --from-shard $tx_from_shard --to $receiver_address --to-shard $tx_to_shard --amount $amount"
 
-  if [ ! -z "$tx_wait" ]; then
-    tx_command="$tx_command --timeout $tx_wait"
+  if [ ! -z "$tx_passphrase" ]; then
+    tx_command="$tx_command --passphrase $tx_passphrase"
+  fi
+
+  if [ ! -z "$tx_timeout" ]; then
+    tx_command="$tx_command --timeout $tx_timeout"
   fi
 
   api_command "$tx_command"
@@ -370,6 +403,7 @@ output_footer() {
 run() {
   initialize
   output_banner
+  detect_distro
   check_dependencies
   parse_addresses
 

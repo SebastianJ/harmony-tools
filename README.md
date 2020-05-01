@@ -64,6 +64,20 @@ Options:
    --help                             print this help section
 ```
 
+## pga/pga.sh
+pga.sh can be used to perform funding of addresses, checking exact address balances etc
+
+### Usage
+
+#### Funding addresses
+
+`nano addresses.txt` (enter your addresses here)
+
+```
+bash <(curl -sSL https://raw.githubusercontent.com/SebastianJ/harmony-tools/master/pga/pga.sh) transfer --network pangaea --input-file addresses.txt --export-file results.txt --amount 1 --tx-from ADDRESS --tx-from-shard 0 --tx-to-shard 0
+```
+
+
 ## keys/generate.sh
 generate.sh is a helper script to help users with generating BLS key for specific shards
 
